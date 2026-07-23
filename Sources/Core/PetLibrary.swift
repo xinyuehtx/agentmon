@@ -10,6 +10,7 @@ public struct PetKeyframe: Codable, Equatable {
     public var sy: Double
     public var rot: Double
     public var a: Double
+    public var ease: String?  // linear|in|out|inout|back|elastic（nil → inout）
 }
 
 public struct PetPart: Codable, Equatable {

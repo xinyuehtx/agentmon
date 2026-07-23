@@ -24,6 +24,7 @@ struct KF: Codable {
     var sy = 1.0
     var rot = 0.0
     var a = 1.0
+    var ease = "inout"  // linear|in|out|inout|back|elastic
 }
 struct Part: Codable {
     var name: String
@@ -77,8 +78,8 @@ struct RootOut: Codable { var schemaVersion: Int; var species: [SpeciesOut] }
 
 // MARK: - 作者化助手
 
-func k(_ t: Double, dx: Double = 0, dy: Double = 0, sx: Double = 1, sy: Double = 1, rot: Double = 0, a: Double = 1) -> KF {
-    KF(t: t, dx: dx, dy: dy, sx: sx, sy: sy, rot: rot, a: a)
+func k(_ t: Double, dx: Double = 0, dy: Double = 0, sx: Double = 1, sy: Double = 1, rot: Double = 0, a: Double = 1, ease: String = "inout") -> KF {
+    KF(t: t, dx: dx, dy: dy, sx: sx, sy: sy, rot: rot, a: a, ease: ease)
 }
 func ell(_ name: String, _ cx: Double, _ cy: Double, _ rx: Double, _ ry: Double, _ fill: String, stroke: String? = nil, sw: Double = 0, rot: Double = 0) -> Part {
     Part(name: name, kind: "ellipse", cx: cx, cy: cy, rx: rx, ry: ry, rot: rot, fill: fill, stroke: stroke, strokeW: sw)
@@ -192,34 +193,69 @@ func eggRig(_ element: String) -> [Part] {
 // MARK: - 动作模板（返回 root 轨 + 部件轨）
 
 func blinkTrack() -> [KF] { [k(0), k(0.86), k(0.9, sy: 0.12), k(0.94), k(1)] }
+func armBob() -> [KF] { [k(0), k(0.5, dy: -0.6, rot: -3), k(1)] }
 
 func breathe() -> ([KF], [String: [KF]]) {
-    ([k(0), k(0.5, dy: -0.6, sy: 1.035), k(1)], ["eyeL": blinkTrack(), "eyeR": blinkTrack()])
+    (
+        [k(0, sy: 1), k(0.5, dy: -0.9, sy: 1.05), k(1, sy: 1)],
+        ["eyeL": blinkTrack(), "eyeR": blinkTrack(), "armL": armBob(), "armR": armBob()]
+    )
 }
 func sleep() -> ([KF], [String: [KF]]) {
     let closed: [KF] = [k(0, sy: 0.12), k(1, sy: 0.12)]
-    return ([k(0, dy: 3, sy: 1.06), k(0.5, dy: 4, sy: 1.09), k(1, dy: 3, sy: 1.06)], ["eyeL": closed, "eyeR": closed])
+    return (
+        [k(0, dy: 3, sy: 1.06), k(0.5, dy: 4.4, sy: 1.1), k(1, dy: 3, sy: 1.06)],
+        ["eyeL": closed, "eyeR": closed]
+    )
 }
 func roll() -> ([KF], [String: [KF]]) {
-    ([k(0, rot: 0), k(0.5, dy: -2, rot: 180), k(1, rot: 360)], [:])
+    ([k(0, rot: 0, ease: "in"), k(0.5, dy: -3, sy: 0.94, rot: 180, ease: "out"), k(1, rot: 360, ease: "in")], [:])
 }
 func hop() -> ([KF], [String: [KF]]) {
-    ([k(0, sy: 1), k(0.18, dy: 1, sy: 1.14), k(0.5, dy: -12, sy: 0.94), k(0.8, dy: 0, sy: 1.08), k(1, sy: 1)], [:])
+    (
+        [
+            k(0, sy: 1, ease: "in"),
+            k(0.16, dy: 2.5, sy: 1.18, ease: "out"),  // 下蹲预备
+            k(0.44, dy: -17, sy: 0.88, ease: "out"),  // 蹦起拉伸
+            k(0.68, dy: 0, sy: 1.16, ease: "back"),  // 落地压扁（回弹）
+            k(0.84, dy: 0, sy: 0.96, ease: "out"),
+            k(1, sy: 1, ease: "inout"),
+        ], [:]
+    )
 }
 func wave() -> ([KF], [String: [KF]]) {
-    let arm: [KF] = [k(0, rot: 0), k(0.25, rot: -75), k(0.5, rot: -45), k(0.75, rot: -75), k(1, rot: 0)]
-    return ([k(0), k(0.5, dy: -1.5), k(1)], ["armR": arm])
+    let arm: [KF] = [
+        k(0, rot: 0, ease: "out"), k(0.18, rot: -85, ease: "out"), k(0.36, rot: -50, ease: "inout"),
+        k(0.54, rot: -88, ease: "inout"), k(0.72, rot: -50, ease: "inout"), k(0.88, rot: -80, ease: "inout"),
+        k(1, rot: 0, ease: "in"),
+    ]
+    return ([k(0), k(0.5, dy: -1.6, rot: -4, ease: "inout"), k(1)], ["armR": arm])
 }
 func lunge() -> ([KF], [String: [KF]]) {
-    ([k(0), k(0.16, dx: -4, sx: 1.05), k(0.34, dx: 9, sx: 0.94), k(0.6, dx: 0), k(1)], [:])
+    let arm: [KF] = [k(0, rot: 0, ease: "in"), k(0.3, rot: 55, ease: "out"), k(0.5, rot: 10, ease: "back"), k(1, rot: 0)]
+    return (
+        [
+            k(0, ease: "in"),
+            k(0.18, dx: -6, sx: 1.07, ease: "in"),  // 蓄力后仰
+            k(0.32, dx: 12, sx: 0.9, sy: 1.08, ease: "out"),  // 前冲出招
+            k(0.5, dx: 2, ease: "back"),  // 回弹
+            k(1, ease: "inout"),
+        ], ["armR": arm]
+    )
 }
 func cheer() -> ([KF], [String: [KF]]) {
-    let up: [KF] = [k(0, rot: 0), k(0.3, rot: -120), k(1, rot: -120)]
-    let upR: [KF] = [k(0, rot: 0), k(0.3, rot: 120), k(1, rot: 120)]
-    return ([k(0, sy: 1), k(0.25, dy: -14, sy: 0.94), k(0.55, dy: 0, sy: 1.1), k(1, dy: 0, sy: 1)], ["armL": up, "armR": upR])
+    let up: [KF] = [k(0, rot: 0, ease: "out"), k(0.3, rot: -130, ease: "back"), k(0.7, rot: -110), k(1, rot: -120)]
+    let upR: [KF] = [k(0, rot: 0, ease: "out"), k(0.3, rot: 130, ease: "back"), k(0.7, rot: 110), k(1, rot: 120)]
+    return (
+        [
+            k(0, sy: 1, ease: "in"), k(0.2, dy: 2, sy: 1.14, ease: "out"),
+            k(0.5, dy: -17, sy: 0.88, ease: "out"), k(0.72, dy: 0, sy: 1.18, ease: "back"),
+            k(0.86, dy: 0, sy: 0.95, ease: "out"), k(1, dy: 0, sy: 1),
+        ], ["armL": up, "armR": upR]
+    )
 }
 func eggWobble() -> ([KF], [String: [KF]]) {
-    ([k(0, rot: -4), k(0.5, rot: 4), k(1, rot: -4)], [:])
+    ([k(0, rot: -5, ease: "inout"), k(0.5, rot: 5, ease: "inout"), k(1, rot: -5, ease: "inout")], [:])
 }
 
 // MARK: - 粒子发射器（按元素/变体）
@@ -420,8 +456,11 @@ func previewHTML(_ json: String) -> String {
     $('play').onclick=()=>{playing=!playing;$('play').textContent=playing?'⏸ 暂停':'▶ 播放';};
     function reset(){t0=performance.now();}
     function lerp(a,b,u){return a+(b-a)*u;}
-    function ease(u){return u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2;}
-    function sample(track,tau){if(!track||!track.length)return null;let a=track[0];for(let i=0;i<track.length;i++){if(track[i].t<=tau)a=track[i];else{const b=track[i],u=ease((tau-a.t)/Math.max(1e-4,b.t-a.t));return{dx:lerp(a.dx,b.dx,u),dy:lerp(a.dy,b.dy,u),sx:lerp(a.sx,b.sx,u),sy:lerp(a.sy,b.sy,u),rot:lerp(a.rot,b.rot,u),a:lerp(a.a,b.a,u)};}}return a;}
+    function applyEase(m,u){switch(m){case 'linear':return u;case 'in':return u*u;case 'out':return 1-(1-u)*(1-u);case 'back':{const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(u-1,3)+c1*Math.pow(u-1,2);}case 'elastic':{if(u<=0||u>=1)return u;const c4=2*Math.PI/3;return Math.pow(2,-10*u)*Math.sin((u*10-0.75)*c4)+1;}default:return u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2;}}
+    function phase(n){let s=0;for(let i=0;i<n.length;i++)s+=n.charCodeAt(i);return (s%100)/100*6.283;}
+    function sway(n,t){if(n.indexOf('tail')>=0)return Math.sin(t*2+phase(n))*8;if(n.indexOf('leaf')>=0||n.indexOf('flame')>=0||n.indexOf('drop')>=0||n.indexOf('flower')>=0)return Math.sin(t*1.6+phase(n))*5;if(n.indexOf('ear')>=0||n.indexOf('arm')>=0)return Math.sin(t*2.4+phase(n))*3;return 0;}
+    let gT=0;
+    function sample(track,tau){if(!track||!track.length)return null;let a=track[0];for(let i=0;i<track.length;i++){if(track[i].t<=tau)a=track[i];else{const b=track[i],u=applyEase(a.ease||'inout',(tau-a.t)/Math.max(1e-4,b.t-a.t));return{dx:lerp(a.dx,b.dx,u),dy:lerp(a.dy,b.dy,u),sx:lerp(a.sx,b.sx,u),sy:lerp(a.sy,b.sy,u),rot:lerp(a.rot,b.rot,u),a:lerp(a.a,b.a,u)};}}return a;}
     function id0(kf){return kf?{dx:kf.dx,dy:kf.dy,sx:kf.sx,sy:kf.sy,rot:kf.rot,a:kf.a}:{dx:0,dy:0,sx:1,sy:1,rot:0,a:1};}
     function pseudo(n){return ((n*1103515245+12345)>>8)&0x7fff;}
     function drawPart(part,tr,pal,S){
@@ -431,7 +470,7 @@ func previewHTML(_ json: String) -> String {
       ctx.rotate(tr.root.rot*Math.PI/180);ctx.scale(tr.root.sx,tr.root.sy);ctx.translate(-rootPivotX,-rootPivotY);
       const lt=tr.local;const ax=(part.kind==='ellipse'?part.cx:(part.points.reduce((s,p)=>s+p[0],0)/part.points.length))*S;
       const ay=(part.kind==='ellipse'?part.cy:(part.points.reduce((s,p)=>s+p[1],0)/part.points.length))*S;
-      ctx.translate(ax+lt.dx*S,ay+lt.dy*S);ctx.rotate(lt.rot*Math.PI/180);ctx.scale(lt.sx,lt.sy);ctx.translate(-ax,-ay);
+      ctx.translate(ax+lt.dx*S,ay+lt.dy*S);ctx.rotate((lt.rot+sway(part.name,gT))*Math.PI/180);ctx.scale(lt.sx,lt.sy);ctx.translate(-ax,-ay);
       ctx.globalAlpha=lt.a*tr.root.a;
       ctx.beginPath();
       if(part.kind==='ellipse'){ctx.ellipse(part.cx*S,part.cy*S,part.rx*S,part.ry*S,part.rot*Math.PI/180,0,7);}
@@ -455,6 +494,7 @@ func previewHTML(_ json: String) -> String {
       ctx.globalAlpha=1;
     }
     function frame(now){
+      gT=now/1000;
       const v=curVar(),sp=curSp(),st=curStage(),S=cv.width/VB,speed=parseFloat($('speed').value);
       let el=(now-t0)/1000*speed;let tau=v.loop?(el%v.dur):Math.min(el,v.dur);const nt=tau/v.dur;
       ctx.clearRect(0,0,cv.width,cv.height);

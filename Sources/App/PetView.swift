@@ -81,10 +81,11 @@ struct PetView: View {
             c.rotate(by: .degrees(rt.rot))
             c.scaleBy(x: rt.sx, y: rt.sy)
             c.translateBy(x: -32, y: -58)
-            // local（绕部件锚点）
+            // local（绕部件锚点）+ 次级摆动
             let (ax, ay) = anchor(part)
+            let sway = secondarySway(part.name, date.timeIntervalSinceReferenceDate)
             c.translateBy(x: ax + lt.dx, y: ay + lt.dy)
-            c.rotate(by: .degrees(lt.rot))
+            c.rotate(by: .degrees(lt.rot + sway))
             c.scaleBy(x: lt.sx, y: lt.sy)
             c.translateBy(x: -ax, y: -ay)
             c.opacity = rt.a * lt.a
@@ -140,7 +141,35 @@ struct PetView: View {
         var a = 1.0
     }
 
-    private func ease(_ u: Double) -> Double { u < 0.5 ? 2 * u * u : 1 - pow(-2 * u + 2, 2) / 2 }
+    private func applyEase(_ mode: String?, _ u: Double) -> Double {
+        switch mode ?? "inout" {
+        case "linear": return u
+        case "in": return u * u
+        case "out": return 1 - (1 - u) * (1 - u)
+        case "back":
+            let c1 = 1.70158
+            let c3 = c1 + 1
+            return 1 + c3 * pow(u - 1, 3) + c1 * pow(u - 1, 2)
+        case "elastic":
+            if u <= 0 || u >= 1 { return u }
+            let c4 = 2 * Double.pi / 3
+            return pow(2, -10 * u) * sin((u * 10 - 0.75) * c4) + 1
+        default: return u < 0.5 ? 2 * u * u : 1 - pow(-2 * u + 2, 2) / 2
+        }
+    }
+
+    /// 附肢的持续次级摆动（随时间叠加在关键帧之上，增添活力）。
+    private func secondarySway(_ n: String, _ t: Double) -> Double {
+        if n.contains("tail") { return sin(t * 2 + swayPhase(n)) * 8 }
+        if n.contains("leaf") || n.contains("flame") || n.contains("drop") || n.contains("flower") {
+            return sin(t * 1.6 + swayPhase(n)) * 5
+        }
+        if n.contains("ear") || n.contains("arm") { return sin(t * 2.4 + swayPhase(n)) * 3 }
+        return 0
+    }
+    private func swayPhase(_ n: String) -> Double {
+        Double(n.utf8.reduce(0) { $0 + Int($1) } % 100) / 100 * 6.283
+    }
 
     private func sample(_ track: [PetKeyframe], _ nt: Double) -> T {
         guard let first = track.first else { return T() }
@@ -149,7 +178,7 @@ struct PetView: View {
             if kf.t <= nt {
                 a = kf
             } else {
-                let u = ease((nt - a.t) / max(1e-4, kf.t - a.t))
+                let u = applyEase(a.ease, (nt - a.t) / max(1e-4, kf.t - a.t))
                 return T(
                     dx: lerp(a.dx, kf.dx, u), dy: lerp(a.dy, kf.dy, u),
                     sx: lerp(a.sx, kf.sx, u), sy: lerp(a.sy, kf.sy, u),
