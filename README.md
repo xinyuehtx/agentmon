@@ -24,7 +24,7 @@ agentmon 监控本地已安装的 Agent 客户端（Claude Code、Qoder、QoderW
 
 - **菜单栏**：猫图标 + `▶工作中 ⏸等待中 ✓已完成`；点开看「监控中 / 最近事件 / 集成状态 / 各客户端计数」。
 - **桌面宠物**：随状态播放**原创手绘图集动画**（idle/工作/等待/完成，逐帧透明精灵，交叉溶解补帧、30fps+ 平滑播放）；**右键 →「隐藏宠物」**，之后从菜单栏「显示宠物」重开；可拖动。三只原创精灵（草/火/水）× 四阶段（蛋/幼年/成熟/完全），每次安装随机分到一只（卸载重装重掷）。图鉴 [`docs/pet-sprites.png`](./docs/pet-sprites.png)，动画预览 [`docs/pet-preview.html`](./docs/pet-preview.html)。
-  - 接新素材：按 [`docs/pet-art-prompt.md`](./docs/pet-art-prompt.md) 生成 6 帧横条 → `swift scripts/process-packs.swift <源目录>`（切片/抠底/对齐）→ `assets/pets_raster/`。
+  - 接新素材：按 [`docs/pet-art-prompt.md`](./docs/pet-art-prompt.md) 为每个动作生成一组**独立帧序列**（`<species>_<stage>_<action>_NN.png`，洋红底单只主体）→ `swift scripts/process-packs.swift <源目录>`（分组/抠底/公共对齐/拼条）→ `assets/pets_raster/`。流水线**增量**运行：只更新处理成功的动作，多主体拼图/异常过宽的帧会被跳过并保留旧素材。
 - **能量/进化**：见下方「能量玩法」。
 
 ## 故障排查 / 诊断

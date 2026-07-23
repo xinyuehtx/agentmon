@@ -32,6 +32,10 @@ left to right: [egg] a speckled {ELEMENT} egg; [juvenile] tiny baby form;
 
 ## 模板 B —— 动作动画条（每个动作跑一次；**推荐 30 帧**）
 
+> ⚠ **流水线当前的原生输入是「独立帧序列」（见下方方式 ①），不是这里的单张多帧条。**
+> 多帧条需先自行切成独立帧再回传；且实践中「一行 N 格」的提示常被模型误画成「一排多只主体」，
+> 反而更不稳。除非你的模型只擅长出条图，否则**优先用方式 ①**。
+
 填 `{ANIMAL}` `{ELEMENT}` `{STAGE}` `{ACTION}` `{N}`（N=30）。一张图 = 一个动作的 N 帧。
 
 ```
@@ -72,34 +76,36 @@ extra limbs, realistic, 3d render, photo
 
 ---
 
-## 可选：直接产出「更多图 / 动图」
+## 推荐：独立帧 / 动图
 
-除了单张多帧条，这两种我也能接（回传后我来处理）：
+这两种回传后我直接接入；**方式 ① 是流水线的原生输入，最推荐**：
 
-### 方式 ① 独立帧（每帧一张，分辨率最高）
+### 方式 ① 独立帧（每帧一张，分辨率最高，**推荐**）
 - 让模型对同一动作输出 **N 张独立图**，每张是第 k 帧姿势，用角色一致功能保持同一只。
 - 命名：`{animal}_{element}_{stage}_{action}_01.png` … `_30.png`（两位序号，按顺序）。
+- **每帧只画一只主体、居中、缩放一致**；洋红底或透明底皆可。
 
 ### 方式 ② 动图（视频/动画模型）
 - 用图生视频模型（如 Runway / Kling / Pika / Luma / Sora）：把模板 A 的定妆图作为首帧，
   提示：`the creature performs <ACTION>, seamless loop, static camera, plain solid magenta background, no camera move`。
 - 导出 **GIF 或 MP4**（1–2 秒，循环）。命名同上：`{animal}_{element}_{stage}_{action}.gif`。
-- 注意：视频模型难保证干净透明底与完美循环，一致性也可能漂移；**若要最稳的透明循环，仍首选「模板 B 多帧条」**。
+- 注意：视频模型难保证干净透明底与完美循环，一致性也可能漂移；**若要最稳的透明循环，仍首选「方式 ① 独立帧序列」**。
 
 ---
 
 ## 回传规范（这样我能直接接入）
 
-1. 首选 **PNG 多帧条**（模板 B）；也接 **独立帧 PNG 序列** 或 **GIF/MP4**。
+1. 首选 **独立帧 PNG 序列**：每个动作一组按序号命名的帧（例如 `_01`..`_30`），**每帧单只主体**。
 2. 背景：优先透明；否则用纯 `#FF00FF` 洋红底（我来抠）。
-3. 命名：`{animal}_{element}_{stage}_{action}[...]`，四阶段（egg/juvenile/mature/final）齐全更好。
-4. **告诉我每个动作的帧数**（例如 30）。
+3. 命名：`{animal}_{element}_{stage}_{action}_{NN}.png`，`NN` 为零填充帧序号；四阶段（egg/juvenile/mature/final）齐全更好。
+   - state 映射：`idle→idle`、`attack→working`、`waiting→waiting`、`complete`/`hatch→complete`。
+4. **⚠ 每帧只画一只主体**，不要把多只/多姿态排成一行（那会被当成多帧条）；帧数一致（如全 30 帧）最好。
 
 ## agentmon 侧接入
 
-- 多帧条：`swift scripts/process-packs.swift <源目录> [帧高=160]`。
-  **帧数自动检测**：抠底去分隔线后，用「空隙分行 + 列内容自相关求每行帧数」，单行横条、R×C 网格、
-  带特效/缺帧的行都能正确切分；fps 按「一轮秒数」推导，帧越多越平滑而非越慢。
-  个别非周期序列（如某个孵化图）若检测偏 ±1 帧，在脚本顶部 `layoutOverride` 里按文件名写死列数即可。
-- 独立帧序列 / GIF：告诉我格式，我给 `process-packs.swift` 加对应读取（GIF 用 CGImageSource 逐帧读，序列用序号拼装），很快。
+- 独立帧序列：`swift scripts/process-packs.swift <源目录（含 *_pack 子目录）> [帧高=160]`。
+  按 `(species,stage,action)` 分组并按序号排序 → 逐帧抠洋红底 → 求全序列公共内容 bbox（保留帧间位移）→
+  统一裁剪缩放 → 横排拼成紧凑透明条 + `manifest.json`。fps 按「一轮秒数」推导，帧越多越平滑而非越慢。
+- **增量 + 自守卫**：预载已有 manifest，只覆盖处理成功的动作；某动作若被画成「一排多只」拼图（bbox 宽高比 > 1.7）
+  会被跳过、不写文件、保留旧素材与旧条目 —— 之后按单只主体重出该动作、重跑脚本即可只更新那几个。
 - App 与网页预览自动按 manifest 的帧数播放，并做交叉溶解补帧。

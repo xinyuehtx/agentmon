@@ -1,8 +1,9 @@
 #!/usr/bin/env swift
 //
-// 处理用户提供的原创宠物精灵图集（洋红底，单行横条或 R×C 网格，帧数不定）→ agentmon 可用的紧凑透明条 + manifest。
-// 步骤：抠洋红底为透明 → 去黑色分隔线 → 空隙分行(R) + 列内容自相关求每行帧数(C) → 逐格公共裁剪(保留位移) → 缩放 → 写 PNG 条 + manifest.json
+// 处理用户提供的原创宠物精灵「独立帧序列」（洋红底，每个动作 N 张 <group>_NN.png）→ agentmon 可用的紧凑透明条 + manifest。
+// 步骤：按 (species,stage,state) 分组并按序号排序 → 逐帧抠洋红底为透明 → 求全序列公共内容 bbox（保留帧间位移）→ 裁剪缩放 → 横排拼成 PNG 条 + manifest.json
 //
+// 源目录结构：<源目录>/<species>_pack.../<species>_<stage>_<action>_<NN>.png（NN 为零填充序号，如 _01.._30）
 // 用法：swift scripts/process-packs.swift <源目录（含 *_pack 子目录）> [帧高=160]
 // 输出：assets/pets_raster/<species>/<stage>_<state>.png  +  assets/pets_raster/manifest.json
 //
@@ -17,11 +18,6 @@ let frameH = args.count > 2 ? (Int(args[2]) ?? 160) : 160
 
 let repoRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 let outDir = repoRoot.appendingPathComponent("assets/pets_raster")
-
-// 少数「非周期序列」图（如某个孵化过程）自相关帧数会偏 ±1，用文件名→列数显式校正（逃生阀）。
-let layoutOverride: [String: Int] = [
-    "sealion_water_egg_hatch.png": 8
-]
 
 // 文件名 action → agentmon 状态键
 func stateKey(_ action: String) -> String? {
@@ -88,10 +84,9 @@ func writePNG(_ img: CGImage, _ url: URL) {
     CGImageDestinationFinalize(dest)
 }
 
-// 处理单个动作条 → 写紧凑透明条 PNG，返回 (帧宽, 帧高, 帧数)
-func processStrip(_ url: URL, out: URL) -> (Int, Int, Int)? {
-    guard let (src, w, h) = loadPixels(url) else { return nil }
-    // 背景色 = 四角中位（洋红）
+// 抠洋红底：把一帧原始像素 → 带透明的 RGBA 缓冲（premultiplied）
+func keyMagenta(_ src: [UInt8], _ w: Int, _ h: Int) -> [UInt8] {
+    // 背景色 = 四角中位（洋红），对不同帧的底色深浅更鲁棒
     func at(_ x: Int, _ y: Int) -> RGBA {
         let i = (y * w + x) * 4
         return RGBA(r: Int(src[i]), g: Int(src[i + 1]), b: Int(src[i + 2]))
@@ -100,8 +95,6 @@ func processStrip(_ url: URL, out: URL) -> (Int, Int, Int)? {
     let bg = RGBA(
         r: corners.map(\.r).sorted()[1], g: corners.map(\.g).sorted()[1], b: corners.map(\.b).sorted()[1])
     let tol = 105.0  // 抠色容差
-
-    var out8 = src
     func dist(_ p: RGBA) -> Double {
         let dr = Double(p.r - bg.r), dg = Double(p.g - bg.g), db = Double(p.b - bg.b)
         return (dr * dr + dg * dg + db * db).squareRoot()
@@ -115,6 +108,7 @@ func processStrip(_ url: URL, out: URL) -> (Int, Int, Int)? {
         if d < tol * 1.6 { return (d - tol) / (tol * 0.6) }
         return 1
     }
+    var out8 = src
     for y in 0..<h {
         for x in 0..<w {
             let i = (y * w + x) * 4
@@ -125,177 +119,69 @@ func processStrip(_ url: URL, out: URL) -> (Int, Int, Int)? {
             out8[i + 3] = UInt8(a * 255)
         }
     }
+    return out8
+}
 
-    // ===== 布局检测 =====
-    // 图集排布不一：单行 N 帧横条、或 R×C 网格（行间是洋红缝隙、列间可能有黑分隔线，帧数 6~12 不定）。
-    // 策略：① 去掉贯穿全图的黑色分隔线；② 行 R = 以「整行近乎全透明」的缝隙分行（浮空羽冠不误分）；
-    // ③ 列 C = 各行带内用「列内容信号自相关」求帧周期、取最多帧（对紧密排布/特效/边缘裁切都稳健）；
-    // ④ 按内容框把每轴等分成 R×C 单元格。
-    func lumaDark(_ i: Int) -> Bool {
-        out8[i + 3] > 60 && (Int(out8[i]) + Int(out8[i + 1]) + Int(out8[i + 2])) / 3 < 110
+// 处理一个动作的「独立帧序列」（已按序号排序）→ 写紧凑透明条 PNG，返回 (帧宽, 帧高, 帧数)。
+// 逐帧抠底 → 求全序列公共内容 bbox（保留帧间位移，不逐帧居中，动作才有位移感）→ 统一裁剪缩放 → 横排拼接。
+func processFrames(_ urls: [URL], out: URL) -> (Int, Int, Int)? {
+    guard !urls.isEmpty else { return nil }
+    var keyed = [(px: [UInt8], w: Int, h: Int)]()
+    for u in urls {
+        guard let (src, w, h) = loadPixels(u) else { continue }
+        keyed.append((keyMagenta(src, w, h), w, h))
     }
-    // 分隔线判定用「最长连续暗像素段」：真·分隔线是贯穿实线（连续段≈满跨度）；角色脚线/轮廓即使
-    // 暗像素多也是断续段（最长连续段短）→ 不误判、不误抹。
-    func longestDark(vertical: Bool, _ a: Int) -> Int {
-        let n2 = vertical ? h : w
-        var run = 0, best = 0
-        for b in 0..<n2 {
-            if lumaDark((vertical ? (b * w + a) : (a * w + b)) * 4) {
-                run += 1
-                if run > best { best = run }
-            } else { run = 0 }
-        }
-        return best
-    }
-    for x in 0..<w where Double(longestDark(vertical: true, x)) > Double(h) * 0.78 {
-        for y in 0..<h { out8[(y * w + x) * 4 + 3] = 0 }
-    }
-    for y in 0..<h where Double(longestDark(vertical: false, y)) > Double(w) * 0.78 {
-        for x in 0..<w { out8[(y * w + x) * 4 + 3] = 0 }
-    }
+    guard !keyed.isEmpty else { return nil }
+    // 帧尺寸统一（同一动作同分辨率）；以首帧为基准
+    let w = keyed[0].w, h = keyed[0].h
 
-    var rowSig = [Int](repeating: 0, count: h)
-    for y in 0..<h {
-        for x in 0..<w where out8[(y * w + x) * 4 + 3] > 60 { rowSig[y] += 1 }
-    }
-    // 行带：整行不透明像素 ≤ 阈值即视为行间缝隙（网格行间隙抠底后透明；浮空羽冠不产生整幅空行）
-    func bands(_ sig: [Int], gapThr: Int, minBand: Int) -> [(lo: Int, hi: Int)] {
-        var out = [(lo: Int, hi: Int)]()
-        var s = -1
-        for i in 0..<sig.count {
-            if sig[i] > gapThr {
-                if s < 0 { s = i }
-            } else if s >= 0 {
-                if i - s >= minBand { out.append((s, i - 1)) }
-                s = -1
-            }
-        }
-        if s >= 0 && sig.count - s >= minBand { out.append((s, sig.count - 1)) }
-        return out
-    }
-    var rowBandRanges = bands(rowSig, gapThr: max(2, Int(Double(w) * 0.006)), minBand: max(3, Int(Double(h) * 0.06)))
-    if rowBandRanges.isEmpty { rowBandRanges = [(0, h - 1)] }
-    let R = rowBandRanges.count
-    var rowBounds = [0]
-    for k in 1..<rowBandRanges.count { rowBounds.append((rowBandRanges[k - 1].hi + rowBandRanges[k].lo) / 2) }
-    rowBounds.append(h)
-
-    // 行带内：对「列内容信号」做自相关求帧周期 → 帧数。取自相关 ≥ 0.75×峰值中最大的 N
-    // （基频=最多帧，避免选到 2 倍周期而漏帧）。并返回该行带内容的 x 范围，供等分列边界。
-    func framePeriod(_ b: (lo: Int, hi: Int)) -> (n: Int, lo: Int, hi: Int) {
-        var col = [Double](repeating: 0, count: w)
-        for y in b.lo...b.hi {
-            for x in 0..<w where out8[(y * w + x) * 4 + 3] > 60 { col[x] += 1 }
-        }
-        var lo = 0
-        while lo < w && col[lo] < 1 { lo += 1 }
-        var hi = w - 1
-        while hi > lo && col[hi] < 1 { hi -= 1 }
-        let cw = hi - lo + 1
-        if cw < 40 { return (1, lo, max(lo, hi)) }
-        var s = [Double](repeating: 0, count: cw)
-        var mean = 0.0
-        for i in 0..<cw { s[i] = col[lo + i]; mean += s[i] }
-        mean /= Double(cw)
-        for i in 0..<cw { s[i] -= mean }
-        // 连续 lag 自相关，取「首个显著局部峰」为基频周期：既不会选到 2 倍周期（帧偏少），
-        // 也不会被相邻 ±1 帧的相近自相关带偏（帧偏多）。
-        let lagMin = max(8, cw / 13)
-        let lagMax = cw / 3
-        if lagMax <= lagMin + 1 { return (1, lo, hi) }
-        var acArr = [Double](repeating: 0, count: lagMax + 1)
-        var acMax = 0.0
-        for lag in lagMin...lagMax {
-            var sum = 0.0
-            for i in 0..<(cw - lag) { sum += s[i] * s[i + lag] }
-            let v = sum / Double(cw - lag)
-            acArr[lag] = v
-            if v > acMax { acMax = v }
-        }
-        if acMax <= 0 { return (1, lo, hi) }
-        var period = -1
-        for lag in (lagMin + 1)...(lagMax - 1) {
-            guard acArr[lag] >= 0.55 * acMax, acArr[lag] >= acArr[lag - 1], acArr[lag] >= acArr[lag + 1]
-            else { continue }
-            let win = max(1, Int(Double(lag) * 0.15))
-            var isPeak = true
-            for d in -win...win {
-                let j = lag + d
-                if j >= lagMin && j <= lagMax && acArr[j] > acArr[lag] { isPeak = false; break }
-            }
-            if isPeak { period = lag; break }
-        }
-        if period < 1 { return (1, lo, hi) }
-        let nframes = max(1, Int((Double(cw) / Double(period)).rounded()))
-        return (nframes, lo, hi)
-    }
-    // 首行（动画起始行，最干净）定「列数 C」；但每行按「自己的内容 x 范围」等分成 C 格——
-    // 各行角色 x 分布可能不同（含缺帧行），若都套用首行边界会错位、把邻格挤成双影。
-    var perBand = [(n: Int, lo: Int, hi: Int)]()
-    for b in rowBandRanges { perBand.append(framePeriod(b)) }
-    let base = perBand.first(where: { $0.n >= 2 }) ?? perBand[0]
-    let overC = layoutOverride[url.lastPathComponent]
-    let baseN = overC ?? max(1, base.n)
-    let C = baseN  // 报告/内边距用；每行实际帧数见下
-
-    // 每行帧数 = min(本行自相关帧数, 首行帧数)。首行是干净的动画起始行，给出真实最大帧数；
-    // 特效只会让某行「多检出」帧 → 用首行封顶；「缺帧行」帧数更少 → 保留其较小值（真实差异）。
-    // 每行按自己的内容 x 范围等分，避免跨行 x 分布不同导致错位/双影。
-    var cells = [(x0: Int, y0: Int, x1: Int, y1: Int)]()
-    for ri in 0..<R {
-        let rowN = overC ?? min(max(1, perBand[ri].n), baseN)
-        var lo = perBand[ri].lo, hi = perBand[ri].hi
-        if hi <= lo { lo = 0; hi = w - 1 }
-        let y0 = rowBounds[ri], y1 = rowBounds[ri + 1]
-        for c in 0..<rowN {
-            let x0 = lo + c * (hi - lo + 1) / rowN
-            let x1 = lo + (c + 1) * (hi - lo + 1) / rowN
-            cells.append((x0, y0, min(x1, w), min(y1, h)))
-        }
-    }
-    let n = cells.count
-
-    // 跨全部 cell 求「格内公共内容 bbox」（cell 内局部坐标；保留帧间位移，不做 margin 裁剪）
-    func alpha(_ gx: Int, _ gy: Int) -> Int { Int(out8[(gy * w + gx) * 4 + 3]) }
-    var uMinX = Int.max, uMinY = Int.max, uMaxX = -1, uMaxY = -1
-    for cell in cells {
-        let cw = cell.x1 - cell.x0, ch = cell.y1 - cell.y0
-        for ly in 0..<ch where cell.y0 + ly < h {
-            for lx in 0..<cw where cell.x0 + lx < w && alpha(cell.x0 + lx, cell.y0 + ly) > 40 {
-                if lx < uMinX { uMinX = lx }
-                if lx > uMaxX { uMaxX = lx }
-                if ly < uMinY { uMinY = ly }
-                if ly > uMaxY { uMaxY = ly }
+    // 跨全部帧求公共内容 bbox（alpha>40 视为内容），保留帧间位移
+    var minX = Int.max, minY = Int.max, maxX = -1, maxY = -1
+    for f in keyed where f.w == w && f.h == h {
+        for y in 0..<h {
+            let row = y * w
+            for x in 0..<w where f.px[(row + x) * 4 + 3] > 40 {
+                if x < minX { minX = x }
+                if x > maxX { maxX = x }
+                if y < minY { minY = y }
+                if y > maxY { maxY = y }
             }
         }
     }
-    guard uMaxX >= uMinX, uMaxY >= uMinY else { return nil }
-    // 四周留 2% 内边距，避免特效贴边被切
-    let padX = max(1, Int(Double(w) / Double(C) * 0.02)), padY = max(1, Int(Double(h) / Double(R) * 0.02))
-    uMinX = max(0, uMinX - padX); uMaxX += padX
-    uMinY = max(0, uMinY - padY); uMaxY += padY
-    let uw = uMaxX - uMinX + 1, uh = uMaxY - uMinY + 1
+    guard maxX >= minX, maxY >= minY else { return nil }
+    // 四周留 2% 内边距，避免特效/描边贴边被切
+    let padX = max(1, Int(Double(w) * 0.02)), padY = max(1, Int(Double(h) * 0.02))
+    minX = max(0, minX - padX); maxX = min(w - 1, maxX + padX)
+    minY = max(0, minY - padY); maxY = min(h - 1, maxY + padY)
+    let uw = maxX - minX + 1, uh = maxY - minY + 1
 
-    guard let keyed = makeCGImage(out8, w, h) else { return nil }
+    // 拒绝「一排多只」的拼图或异常过宽序列：单只主体宽高比通常 ≤ ~1.4；> 1.7 视为多主体，跳过（不写文件、
+    // 不覆盖旧图），由调用方保留旧条目。避免把多只主体压扁成一条渲染。
+    if Double(uw) / Double(uh) > 1.7 {
+        FileHandle.standardError.write(
+            "   [\(out.lastPathComponent)] 跳过：疑似多主体拼图/过宽 bbox=\(uw)x\(uh)（宽高比 \(String(format: "%.2f", Double(uw)/Double(uh))) > 1.7），请按单只主体重出该动作\n"
+                .data(using: .utf8)!)
+        return nil
+    }
+
     let scale = Double(frameH) / Double(uh)
     let fw = max(1, Int(Double(uw) * scale))
+    let n = keyed.count
     let stripW = fw * n
     let cs = CGColorSpaceCreateDeviceRGB()
     guard let octx = CGContext(data: nil, width: stripW, height: frameH, bitsPerComponent: 8, bytesPerRow: 0,
         space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
     octx.interpolationQuality = .high
-    // 行主序（上→下、左→右）。keyed 行序与缓冲区一致（原点左上），故 r 升序即视觉上→下。
-    for (f, cell) in cells.enumerated() {
-        let cx = min(max(0, cell.x0 + uMinX), w - uw)
-        let cy = min(max(0, cell.y0 + uMinY), h - uh)
-        if let frame = keyed.cropping(to: CGRect(x: cx, y: cy, width: uw, height: uh)) {
-            octx.draw(frame, in: CGRect(x: f * fw, y: 0, width: fw, height: frameH))
-        }
+    for (f, frame) in keyed.enumerated() {
+        guard frame.w == w, frame.h == h, let img = makeCGImage(frame.px, w, h),
+            let crop = img.cropping(to: CGRect(x: minX, y: minY, width: uw, height: uh)) else { continue }
+        octx.draw(crop, in: CGRect(x: f * fw, y: 0, width: fw, height: frameH))
     }
     guard let stripImg = octx.makeImage() else { return nil }
     writePNG(stripImg, out)
     FileHandle.standardError.write(
-        "   [\(url.lastPathComponent)] R=\(R) C=\(C) n=\(n) perRow=\(perBand.map { $0.n })\n".data(using: .utf8)!)
+        "   [\(out.lastPathComponent)] n=\(n) frame=\(fw)x\(frameH) bbox=\(uw)x\(uh)@\(minX),\(minY)\n"
+            .data(using: .utf8)!)
     return (fw, frameH, n)
 }
 
@@ -307,33 +193,59 @@ struct SpeciesOut: Codable { let id: String; let element: String; var stages: [S
 struct Manifest: Codable { let schemaVersion: Int; let frameHeight: Int; let species: [SpeciesOut] }
 
 let fm = FileManager.default
-try? fm.removeItem(at: outDir)
 let stageOrder = ["egg", "juvenile", "mature", "final"]
 var speciesMap: [String: (element: String, stages: [String: [String: ActionOut]])] = [:]
+
+// 增量：预载已有 manifest。成功处理的组会覆盖，被跳过（缺帧/过宽多只拼图）的组保留旧条目与旧 PNG，
+// 使得「补出个别动作 → 重跑」只更新那几个动作，其余原封不动、不留残图。
+if let data = try? Data(contentsOf: outDir.appendingPathComponent("manifest.json")),
+    let old = try? JSONDecoder().decode(Manifest.self, from: data) {
+    for sp in old.species {
+        for st in sp.stages {
+            for (state, a) in st.actions {
+                speciesMap[sp.id, default: (sp.element, [:])].element = sp.element
+                speciesMap[sp.id, default: (sp.element, [:])].stages[st.stage, default: [:]][state] = a
+            }
+        }
+    }
+}
+
+// 组键：(species, stage, state)。文件名形如 <species...>_<stage>_<action>_<NN>.png。
+struct GroupKey: Hashable { let speciesID: String; let element: String; let stage: String; let state: String }
 
 let packs = (try? fm.contentsOfDirectory(at: srcDir, includingPropertiesForKeys: nil))?
     .filter { $0.hasDirectoryPath } ?? []
 for pack in packs.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
     let files = (try? fm.contentsOfDirectory(at: pack, includingPropertiesForKeys: nil))?
         .filter { $0.pathExtension == "png" && !$0.lastPathComponent.contains("evolution") } ?? []
-    for file in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+    // 先按组收集帧
+    var groups = [GroupKey: [(seq: Int, url: URL)]]()
+    for file in files {
         let base = file.deletingPathExtension().lastPathComponent
-        let toks = base.split(separator: "_").map(String.init)
-        guard toks.count >= 4, let state = stateKey(toks[toks.count - 1]) else { continue }
+        var toks = base.split(separator: "_").map(String.init)
+        // 末段应为帧序号；无序号（单帧）则序号记 0
+        var seq = 0
+        if let last = toks.last, let num = Int(last) { seq = num; toks.removeLast() }
+        guard toks.count >= 3, let state = stateKey(toks[toks.count - 1]) else { continue }
         let stage = toks[toks.count - 2]
         guard stageOrder.contains(stage) else { continue }
         let speciesID = toks[0..<(toks.count - 2)].joined(separator: "_")
         let element = elementOf(toks.count >= 2 ? toks[1] : "")
-        let outFile = outDir.appendingPathComponent("\(speciesID)/\(stage)_\(state).png")
-        guard let (fw, fh, nframes) = processStrip(file, out: outFile) else {
-            print("skip \(base)"); continue
+        let key = GroupKey(speciesID: speciesID, element: element, stage: stage, state: state)
+        groups[key, default: []].append((seq, file))
+    }
+    for key in groups.keys.sorted(by: { "\($0.stage)_\($0.state)" < "\($1.stage)_\($1.state)" }) {
+        let urls = groups[key]!.sorted { $0.seq < $1.seq }.map(\.url)
+        let outFile = outDir.appendingPathComponent("\(key.speciesID)/\(key.stage)_\(key.state).png")
+        guard let (fw, fh, nframes) = processFrames(urls, out: outFile) else {
+            print("skip \(key.speciesID) \(key.stage)/\(key.state)"); continue
         }
         let action = ActionOut(
-            file: "\(speciesID)/\(stage)_\(state).png", frames: nframes, fw: fw, fh: fh,
-            fps: fps(state, frames: nframes))
-        speciesMap[speciesID, default: (element, [:])].element = element
-        speciesMap[speciesID, default: (element, [:])].stages[stage, default: [:]][state] = action
-        print("ok \(speciesID) \(stage)/\(state)  \(nframes)帧 \(fw)x\(fh)")
+            file: "\(key.speciesID)/\(key.stage)_\(key.state).png", frames: nframes, fw: fw, fh: fh,
+            fps: fps(key.state, frames: nframes))
+        speciesMap[key.speciesID, default: (key.element, [:])].element = key.element
+        speciesMap[key.speciesID, default: (key.element, [:])].stages[key.stage, default: [:]][key.state] = action
+        print("ok \(key.speciesID) \(key.stage)/\(key.state)  \(nframes)帧 \(fw)x\(fh)")
     }
 }
 
