@@ -197,7 +197,8 @@ let manifest = Manifest(
     })
 let enc = JSONEncoder()
 enc.outputFormatting = [.prettyPrinted, .sortedKeys]
-try enc.encode(manifest).write(to: outDir.appendingPathComponent("manifest.json"))
+let mjson = try enc.encode(manifest)
+try mjson.write(to: outDir.appendingPathComponent("manifest.json"))
 print("\nwrote \(outDir.path)/manifest.json  species=\(manifest.species.map(\.id))")
 
 // 联系表（每物种×阶段的 idle 首帧）→ docs/pet-sprites.png，供官网图鉴展示
@@ -236,3 +237,66 @@ func contactSheet() {
     }
 }
 contactSheet()
+
+// 光栅动画预览页（内联清单，逐帧播放；图片先找 docs/pets_raster，再回退 ../assets/pets_raster）
+try? rasterPreviewHTML(String(decoding: mjson, as: UTF8.self))
+    .write(to: repoRoot.appendingPathComponent("docs/pet-preview.html"), atomically: true, encoding: .utf8)
+print("wrote docs/pet-preview.html")
+
+func rasterPreviewHTML(_ json: String) -> String {
+    """
+    <!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>agentmon 宠物预览</title>
+    <style>
+      body{margin:0;font-family:-apple-system,system-ui,"PingFang SC",sans-serif;background:#12141a;color:#e8eaed;text-align:center}
+      h1{font-size:20px;margin:20px 0 4px}.muted{color:#9aa0aa;font-size:13px;margin:0 0 12px}
+      .controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px}
+      select,button{background:#1c2029;color:#e8eaed;border:1px solid #2a2f3a;border-radius:8px;padding:8px 12px;font-size:14px}
+      canvas{background:radial-gradient(circle at 50% 42%,#1b2030,#0b0d12);border-radius:16px;margin:10px auto;display:block;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+      footer{color:#6b7280;font-size:12px;margin:24px}
+    </style></head><body>
+    <h1>agentmon 宠物图鉴 · 动画预览</h1>
+    <p class="muted">原创手绘图集（逐帧动画），非任何既有 IP</p>
+    <div class="controls">
+      <select id="sp"></select><select id="stage"></select><select id="action"></select>
+      <button id="play">⏸ 暂停</button>
+      <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
+    </div>
+    <canvas id="c" width="320" height="320"></canvas>
+    <footer>agentmon · <a style="color:#ff8a12" href="index.html">返回首页</a></footer>
+    <script>
+    var M=\(json);
+    var cv=document.getElementById('c'),ctx=cv.getContext('2d'),$=function(i){return document.getElementById(i);};
+    var playing=true,t0=performance.now(),imgs={};
+    function imgFor(file){ if(imgs[file])return imgs[file]; var im=new Image(); im.onerror=function(){ if(!im._alt){im._alt=1; im.src='../assets/pets_raster/'+file;} }; im.src='pets_raster/'+file; imgs[file]=im; return im; }
+    function spById(id){ for(var i=0;i<M.species.length;i++) if(M.species[i].id===id) return M.species[i]; }
+    function opts(sel,arr){ sel.innerHTML=''; arr.forEach(function(v){ var o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); }); }
+    function curSp(){ return spById($('sp').value); }
+    function curStage(){ var s=curSp().stages; for(var i=0;i<s.length;i++) if(s[i].stage===$('stage').value) return s[i]; }
+    function curAction(){ return curStage().actions[$('action').value]; }
+    opts($('sp'), M.species.map(function(s){return s.id;}));
+    function refillStage(){ opts($('stage'), curSp().stages.map(function(s){return s.stage;})); }
+    function refillAction(){ opts($('action'), Object.keys(curStage().actions)); }
+    refillStage(); refillAction();
+    $('sp').onchange=function(){refillStage();refillAction();reset();};
+    $('stage').onchange=function(){refillAction();reset();};
+    $('action').onchange=reset;
+    $('play').onclick=function(){playing=!playing;$('play').textContent=playing?'⏸ 暂停':'▶ 播放';};
+    function reset(){t0=performance.now();}
+    function frame(now){
+      var a=curAction(), speed=parseFloat($('speed').value);
+      var el=(now-t0)/1000*speed, loop=($('action').value!=='complete');
+      var idx=Math.floor(el*a.fps); idx=loop?(idx%a.frames):Math.min(idx,a.frames-1);
+      var im=imgFor(a.file);
+      ctx.clearRect(0,0,cv.width,cv.height);
+      if(im.complete&&im.naturalWidth>0){
+        var s=Math.min(cv.width/a.fw, cv.height/a.fh)*0.92, dw=a.fw*s, dh=a.fh*s;
+        ctx.drawImage(im, idx*a.fw,0,a.fw,a.fh, (cv.width-dw)/2, cv.height-dh-8, dw, dh);
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    </script></body></html>
+    """
+}

@@ -39,3 +39,6 @@ playwright-report/
 # agentmon local runtime data
 .agentmon/
 *.local
+
+# Pages 部署时从 assets/pets_raster 拷入的预览副本（勿提交）
+/docs/pets_raster/

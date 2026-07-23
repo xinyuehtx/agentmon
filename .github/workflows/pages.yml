@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "docs/**"
+      - "assets/pets_raster/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -26,6 +27,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: Stage raster pet assets for preview
+        run: |
+          if [ -d assets/pets_raster ]; then
+            mkdir -p docs/pets_raster
+            cp -R assets/pets_raster/. docs/pets_raster/
+          fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs

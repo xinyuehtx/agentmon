@@ -350,7 +350,7 @@ enc.outputFormatting = [.prettyPrinted, .sortedKeys]
 let jsonData = try enc.encode(root)
 try jsonData.write(to: assetsDir.appendingPathComponent("pets.json"))
 try previewHTML(String(decoding: jsonData, as: UTF8.self)).write(
-    to: docsDir.appendingPathComponent("pet-preview.html"), atomically: true, encoding: .utf8)
+    to: docsDir.appendingPathComponent("pet-vector-preview.html"), atomically: true, encoding: .utf8)
 writeContactSheet(to: docsDir.appendingPathComponent("pet-sprites.png"))
 print("wrote assets/pets.json (\(jsonData.count) bytes), docs/pet-preview.html, docs/pet-sprites.png")
 
