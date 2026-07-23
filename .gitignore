@@ -16,6 +16,9 @@ target/
 .build/
 DerivedData/
 *.xcodeproj/xcuserdata/
+
+# Generated Xcode project (xcodegen — 由 project.yml 生成)
+/agentmon.xcodeproj/
 *.xcworkspace/xcuserdata/
 
 # macOS

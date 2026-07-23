@@ -33,7 +33,30 @@ jobs:
         run: brew install swift-format
 
       - name: Lint
-        run: swift-format lint --strict --recursive Sources tests
+        run: swift-format lint --strict --recursive Sources tests UITests
+
+  # E2E：XCUITest 驱动宠物窗（需 GUI 会话，故仅在 CI 运行）
+  uitest:
+    name: UI Test (XCUITest)
+    needs: check
+    if: github.event_name != 'pull_request'
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Run UI tests
+        run: |
+          xcodebuild test \
+            -project agentmon.xcodeproj \
+            -scheme agentmonApp \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO
 
   # 应用打包：组装 agentmon.app 并上传产物（tag 触发时附加到 Release）
   package:

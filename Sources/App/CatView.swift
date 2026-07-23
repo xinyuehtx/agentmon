@@ -17,6 +17,8 @@ struct CatView: View {
             VStack(spacing: 3) {
                 Text("Lv\(state.level) · \(moodText)")
                     .font(.system(size: 11, weight: .semibold))
+                    .accessibilityIdentifier("pet.state")
+                    .accessibilityValue("\(moodRaw):\(state.level)")
                 ProgressView(
                     value: min(state.energy, state.energyToNext),
                     total: max(state.energyToNext, 1)
@@ -43,6 +45,17 @@ struct CatView: View {
         case .waiting: return "等你"
         case .celebrate: return "完成啦"
         case .evolve: return "进化!"
+        }
+    }
+
+    /// 机器可读的 mood 值（供 XCUITest 断言，避免依赖中文文案）。
+    private var moodRaw: String {
+        switch state.mood {
+        case .idle: return "idle"
+        case .working: return "working"
+        case .waiting: return "waiting"
+        case .celebrate: return "celebrate"
+        case .evolve: return "evolve"
         }
     }
 }

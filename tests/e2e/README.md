@@ -1,28 +1,36 @@
-# E2E（XCUITest）场景 —— Step 9 落地
+# E2E（XCUITest）—— Step 9 已落地
 
-E2E 属工作流第 9 步（可选、影响用户感知关键路径时必做）。本文件先固化场景，实现阶段用
-XCUITest 编写并跑通后输出验证报告。运行方式：`xcodebuild test -scheme agentmon`（含 `agentmonUITests`）。
+工作流第 9 步 E2E。因 **SwiftPM 无法承载 XCUITest UI 测试 target**，用 [xcodegen](https://github.com/yonaskolb/XcodeGen) 从
+[`project.yml`](../../project.yml) 生成含 App host + UITest target 的工程；测试 **只驱动宠物窗（NSPanel）**——
+菜单栏 `NSStatusItem` 不在 app 窗口树内、XCUITest 无法寻址，故不纳入。
 
-## 关键路径场景
+## 跑法
 
-### E2E-1 菜单栏三态实时反映
-1. 启动 App（测试模式：spool 目录指向临时路径，绕过真实 Claude）。
-2. 向 spool 投递 `UserPromptSubmit` 事件 → 菜单栏「工作中」显示 1。
-3. 投递 `Notification` → 转「等待中」1、「工作中」0。
-4. 投递 `Stop` → 「已完成」+1、宠物播放庆祝。
+```bash
+brew install xcodegen                        # 一次性
+xcodegen generate                            # 生成 agentmon.xcodeproj（已 gitignore）
+xcodebuild test \
+  -project agentmon.xcodeproj \
+  -scheme agentmonApp \
+  -destination 'platform=macOS' \
+  CODE_SIGNING_ALLOWED=NO
+```
 
-### E2E-2 宠物窗口存在与互动
-1. 开启宠物窗 → 断言浮窗出现、置顶、点击不抢焦点。
-2. 点击「撸猫」→ 断言出现互动反应。
+> ⚠️ XCUITest 需要 **GUI 会话**：无头 shell 会在 bootstrap 阶段被 kill（`signal kill before establishing connection`）。
+> 因此本地只能做到「编译级」验证（`xcodebuild build-for-testing`），真正运行在 **CI（`macos-14`，有 GUI）** 完成——
+> 见 [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) 的 `uitest` job。
 
-### E2E-3 进化换肤演出
-1. 测试模式注入接近门槛的能量与一次完成事件 → 断言触发进化动画、皮肤切到 Lv2、菜单栏 `Lv2`。
+## 测试可控性（已实现）
+- `AGENTMON_HOME`：重定向 spool/state/config 到临时目录（`AgentmonPaths`）。
+- `AGENTMON_CLAUDE_SETTINGS`：重定向 Claude settings 路径。
+- `AGENTMON_UITEST`：App 以 `.regular` 激活策略运行，便于 XCUITest 寻址窗口。
+- `CatView` 暴露无障碍：`identifier="pet.state"`、`value="<mood>:<level>"`（如 `working:1`），断言不依赖中文文案。
 
-### E2E-4 启用/停用 Claude 集成（指向临时 settings.json）
-1. 点击「启用集成」→ 断言临时 settings.json 含 agentmon hooks、生成备份。
-2. 点击「停用集成」→ 断言仅移除 agentmon 项、用户既有 hooks 保留。
+## 已实现用例（[`UITests/PetPanelUITests.swift`](../../UITests/PetPanelUITests.swift)）
+- **testPetShowsWorking**：启动前投递 `UserPromptSubmit` → 宠物窗 `pet.state` 值以 `working:` 开头。
+- **testPetReturnsToIdleAfterCompletion**：再投 `Stop` → 下一 tick 后值回落 `idle:`。
 
-## 测试可控性要求（供实现参考）
-- App 需支持通过环境变量/启动参数覆盖：spool 目录、Application Support 目录、Claude settings 路径，
-  以便 UI 测试在隔离沙盒中运行，绝不触碰用户真实数据。
-- 能量/门槛可由测试注入的 `config.json` 控制，便于制造「即将进化」态。
+## 后续可补场景（尚未落地）
+- 进化换肤：注入近门槛能量 + 完成事件 → 断言值出现 `evolve:`/level 递增。
+- 启用/停用 Claude 集成：用 `AGENTMON_CLAUDE_SETTINGS` 指向临时文件断言注入/回滚（当前由集成测试
+  `ClaudeHookInstallerTests` 覆盖同等逻辑）。

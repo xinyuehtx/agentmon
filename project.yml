@@ -1,0 +1,56 @@
+name: agentmon
+options:
+  bundleIdPrefix: com.agentmon
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+
+# 复用根目录的 SwiftPM 包，取 agentmonCore 产物
+packages:
+  agentmon:
+    path: .
+
+targets:
+  # 被测 App（宿主）—— 与 SPM 的 agentmon 可执行共用 Sources/App
+  agentmonApp:
+    type: application
+    platform: macOS
+    sources:
+      - Sources/App
+    dependencies:
+      - package: agentmon
+        product: agentmonCore
+    settings:
+      base:
+        PRODUCT_NAME: agentmon
+        PRODUCT_BUNDLE_IDENTIFIER: com.agentmon.app
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_LSUIElement: YES
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGN_IDENTITY: ""
+
+  # XCUITest bundle —— 只驱动宠物窗
+  agentmonUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - UITests
+    dependencies:
+      - target: agentmonApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.agentmon.uitests
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGN_IDENTITY: ""
+
+schemes:
+  agentmonApp:
+    build:
+      targets:
+        agentmonApp: all
+        agentmonUITests: [test]
+    test:
+      targets:
+        - agentmonUITests

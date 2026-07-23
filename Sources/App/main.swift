@@ -11,5 +11,7 @@ if CommandLine.arguments.contains("--selftest") {
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
-app.setActivationPolicy(.accessory)  // 菜单栏 App，无 Dock 图标
+// 常规为菜单栏 App（无 Dock 图标）；UI 测试下切 .regular，便于 XCUITest 稳定寻址窗口。
+let isUITest = ProcessInfo.processInfo.environment["AGENTMON_UITEST"] != nil
+app.setActivationPolicy(isUITest ? .regular : .accessory)
 app.run()
