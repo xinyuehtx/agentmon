@@ -115,10 +115,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func setupPetPanel() {
-        guard let store = rasterStore else {
-            AgentmonLog.shared.error("pet", "宠物图集缺失，跳过宠物窗")
-            return
-        }
+        // 始终创建宠物窗（保证 pet.state 无障碍节点存在）；无图集时仅显示状态文案，不画精灵。
+        if rasterStore == nil { AgentmonLog.shared.error("pet", "宠物图集缺失，仅显示状态") }
+        let store =
+            rasterStore
+            ?? RasterPetStore(
+                manifest: RasterManifest(schemaVersion: 0, frameHeight: 0, species: []),
+                baseDir: URL(fileURLWithPath: "/"))
         let host = NSHostingView(
             rootView: RasterPetView(state: petState, store: store, onHide: { [weak self] in self?.hidePet() }))
         let panel = PetPanel(content: host)
