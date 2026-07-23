@@ -1,8 +1,7 @@
 import Combine
 import SwiftUI
-import agentmonCore
 
-/// 宠物的可观察状态，驱动 PetView 表现。
+/// 宠物的可观察状态，驱动 RasterPetView 表现。
 final class PetState: ObservableObject {
     enum Mood { case idle, working, waiting, celebrate, evolve }
 
@@ -15,7 +14,6 @@ final class PetState: ObservableObject {
     @Published var completed: Int = 0
     @Published var species: String = "sprout"
     @Published var stage: String = "egg"
-    /// 当前正在播放的动作变体（由 AppDelegate 在状态变化时随机挑选）。
-    @Published var variant: PetVariant?
+    /// 当前动作动画的播放起点（状态/阶段变化时重置；用于循环与一次性 complete 计时）。
     @Published var variantStart: Date = Date()
 }

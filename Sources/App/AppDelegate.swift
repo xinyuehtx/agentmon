@@ -11,7 +11,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var timer: Timer?
     private let petState = PetState()
     private var lastSnapshot: MonitorSnapshot?
-    private let catalog = PetAssets.load() ?? PetCatalog(schemaVersion: 0, species: [])
     private let rasterStore = RasterPetStore.load()
     private var lastCompleted = 0
     private var lastStateKey = ""
@@ -72,19 +71,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             completedByClient: loaded?.completedByClient ?? [:],
             day: loaded?.completedDay, now: Date())
 
-        // 宠物物种：优先用光栅图集包（原创素材），否则用矢量。读持久化，否则随机分配一次。
-        let activeIDs = rasterStore?.manifest.speciesIDs ?? catalog.speciesIDs
+        // 宠物物种：读持久化，否则从图集包中随机分配一次（卸载重装因 state.json 丢失而重掷）。
+        let activeIDs = rasterStore?.manifest.speciesIDs ?? []
         let resolvedSpecies: String
         if let persisted = loaded?.species, activeIDs.contains(persisted) {
             resolvedSpecies = persisted
         } else {
             var rng = SystemRandomNumberGenerator()
-            resolvedSpecies = PetSelection.choose(speciesIDs: activeIDs, using: &rng) ?? activeIDs.first ?? "sprout"
+            resolvedSpecies = PetSelection.choose(speciesIDs: activeIDs, using: &rng) ?? activeIDs.first ?? ""
         }
         coordinator.species = resolvedSpecies
         petState.species = resolvedSpecies
         lastCompleted = (loaded?.completedByClient.values.reduce(0, +)) ?? 0
-        AgentmonLog.shared.info("pet", "物种=\(resolvedSpecies) 渲染=\(rasterStore != nil ? "raster" : "vector")")
+        AgentmonLog.shared.info("pet", "物种=\(resolvedSpecies)")
         AgentmonLog.shared.info(
             "app",
             "集成状态=\((try? installer.isInstalled()) == true ? "已启用" : "未启用") "
@@ -116,14 +115,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func setupPetPanel() {
-        let host: NSView
-        if let store = rasterStore {
-            host = NSHostingView(
-                rootView: RasterPetView(state: petState, store: store, onHide: { [weak self] in self?.hidePet() }))
-        } else {
-            host = NSHostingView(
-                rootView: PetView(state: petState, catalog: catalog, onHide: { [weak self] in self?.hidePet() }))
+        guard let store = rasterStore else {
+            AgentmonLog.shared.error("pet", "宠物图集缺失，跳过宠物窗")
+            return
         }
+        let host = NSHostingView(
+            rootView: RasterPetView(state: petState, store: store, onHide: { [weak self] in self?.hidePet() }))
         let panel = PetPanel(content: host)
         panel.orderFrontRegardless()
         petPanel = panel
@@ -186,14 +183,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// 进入新状态/阶段时，随机挑一个动作变体并重置播放起点。
+    /// 状态/阶段变化时重置动画播放起点（用于循环与一次性 complete 计时）。
     private func refreshVariant() {
         let key = stateKey(for: petState.mood)
         guard key != lastStateKey || petState.stage != lastStage else { return }
         lastStateKey = key
         lastStage = petState.stage
-        let variants = catalog.species(id: petState.species)?.stage(petState.stage)?.states[key] ?? []
-        var rng = SystemRandomNumberGenerator()
-        petState.variant = PetSelection.chooseVariant(from: variants, using: &rng)
         petState.variantStart = Date()
     }
 

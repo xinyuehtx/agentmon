@@ -92,20 +92,26 @@ func processStrip(_ url: URL, out: URL) -> (Int, Int)? {
     let corners = [at(2, 2), at(w - 3, 2), at(2, h - 3), at(w - 3, h - 3)]
     let bg = RGBA(
         r: corners.map(\.r).sorted()[1], g: corners.map(\.g).sorted()[1], b: corners.map(\.b).sorted()[1])
-    let tol = 90.0  // 抠色容差
+    let tol = 105.0  // 抠色容差
 
-    // 抠底：得到 alpha 缓冲（0/255，含羽化）
     var out8 = src
     func dist(_ p: RGBA) -> Double {
         let dr = Double(p.r - bg.r), dg = Double(p.g - bg.g), db = Double(p.b - bg.b)
         return (dr * dr + dg * dg + db * db).squareRoot()
     }
+    // alpha 0..1：接近采样背景，或明显洋红（对背景深浅更鲁棒），并羽化边缘
+    func bgAlpha(_ p: RGBA) -> Double {
+        let magenta = p.r > 135 && p.b > 105 && p.g < min(p.r, p.b) - 35
+        if magenta { return 0 }
+        let d = dist(p)
+        if d < tol { return 0 }
+        if d < tol * 1.6 { return (d - tol) / (tol * 0.6) }
+        return 1
+    }
     for y in 0..<h {
         for x in 0..<w {
             let i = (y * w + x) * 4
-            let d = dist(RGBA(r: Int(src[i]), g: Int(src[i + 1]), b: Int(src[i + 2])))
-            let a: Double = d < tol ? 0 : (d < tol * 1.5 ? (d - tol) / (tol * 0.5) : 1)
-            // 预乘 alpha
+            let a = bgAlpha(RGBA(r: Int(src[i]), g: Int(src[i + 1]), b: Int(src[i + 2])))
             out8[i] = UInt8(Double(src[i]) * a)
             out8[i + 1] = UInt8(Double(src[i + 1]) * a)
             out8[i + 2] = UInt8(Double(src[i + 2]) * a)
@@ -114,21 +120,35 @@ func processStrip(_ url: URL, out: URL) -> (Int, Int)? {
     }
 
     let cellW = Double(w) / Double(FRAMES)
-    let margin = Int(cellW * 0.035)  // 去黑分隔线
-    let cw = Int(cellW) - 2 * margin
-    // 各帧内容 bbox（cell 本地坐标）→ 求并集
-    var uMinX = cw, uMinY = h, uMaxX = 0, uMaxY = 0
+    // 去黑分隔线：把内部 cell 边界附近整列置透明（角色居中，不受影响）
+    let divBand = max(2, Int(cellW * 0.02))
+    for f in 1..<FRAMES {
+        let bx = Int(Double(f) * cellW)
+        for dxb in -divBand...divBand {
+            let x = bx + dxb
+            guard x >= 0, x < w else { continue }
+            for y in 0..<h { out8[(y * w + x) * 4 + 3] = 0 }
+        }
+    }
+
+    // 各帧内容 bbox（整格宽度，不做 margin 裁剪 → 不截断特效）
+    let cw = Int(cellW)
     func alpha(_ gx: Int, _ gy: Int) -> Int { Int(out8[(gy * w + gx) * 4 + 3]) }
+    var uMinX = cw, uMinY = h, uMaxX = 0, uMaxY = 0
     for f in 0..<FRAMES {
-        let x0 = Int(Double(f) * cellW) + margin
+        let x0 = Int(Double(f) * cellW)
         for ly in 0..<h {
-            for lx in 0..<cw where alpha(x0 + lx, ly) > 40 {
+            for lx in 0..<cw where x0 + lx < w && alpha(x0 + lx, ly) > 40 {
                 uMinX = min(uMinX, lx); uMaxX = max(uMaxX, lx)
                 uMinY = min(uMinY, ly); uMaxY = max(uMaxY, ly)
             }
         }
     }
     guard uMaxX > uMinX, uMaxY > uMinY else { return nil }
+    // 四周留 2% 内边距，避免特效贴边被切
+    let padX = Int(Double(cw) * 0.02), padY = Int(Double(h) * 0.02)
+    uMinX = max(0, uMinX - padX); uMaxX = min(cw - 1, uMaxX + padX)
+    uMinY = max(0, uMinY - padY); uMaxY = min(h - 1, uMaxY + padY)
     let uw = uMaxX - uMinX + 1, uh = uMaxY - uMinY + 1
 
     guard let keyed = makeCGImage(out8, w, h) else { return nil }
@@ -140,7 +160,7 @@ func processStrip(_ url: URL, out: URL) -> (Int, Int)? {
         space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
     octx.interpolationQuality = .high
     for f in 0..<FRAMES {
-        let gx = Int(Double(f) * cellW) + margin + uMinX
+        let gx = Int(Double(f) * cellW) + uMinX
         let gy = uMinY
         guard let frame = keyed.cropping(to: CGRect(x: gx, y: gy, width: uw, height: uh)) else { continue }
         octx.draw(frame, in: CGRect(x: f * fw, y: 0, width: fw, height: frameH))
@@ -287,12 +307,16 @@ func rasterPreviewHTML(_ json: String) -> String {
     function frame(now){
       var a=curAction(), speed=parseFloat($('speed').value);
       var el=(now-t0)/1000*speed, loop=($('action').value!=='complete');
-      var idx=Math.floor(el*a.fps); idx=loop?(idx%a.frames):Math.min(idx,a.frames-1);
+      var n=a.frames, cycle=n/Math.max(1,a.fps);
+      var u = loop ? ((el % cycle)/cycle)*n : Math.min(el/cycle,0.999)*Math.max(1,n-1);
+      var i=Math.min(Math.floor(u),n-1), ni=loop?((i+1)%n):Math.min(i+1,n-1), fr=u-Math.floor(u);
       var im=imgFor(a.file);
       ctx.clearRect(0,0,cv.width,cv.height);
       if(im.complete&&im.naturalWidth>0){
-        var s=Math.min(cv.width/a.fw, cv.height/a.fh)*0.92, dw=a.fw*s, dh=a.fh*s;
-        ctx.drawImage(im, idx*a.fw,0,a.fw,a.fh, (cv.width-dw)/2, cv.height-dh-8, dw, dh);
+        var s=Math.min(cv.width/a.fw, cv.height/a.fh)*0.92, dw=a.fw*s, dh=a.fh*s, dx=(cv.width-dw)/2, dy=cv.height-dh-8;
+        ctx.globalAlpha=1; ctx.drawImage(im, i*a.fw,0,a.fw,a.fh, dx,dy,dw,dh);
+        if(fr>0.001){ ctx.globalAlpha=fr; ctx.drawImage(im, ni*a.fw,0,a.fw,a.fh, dx,dy,dw,dh); }
+        ctx.globalAlpha=1;
       }
       requestAnimationFrame(frame);
     }

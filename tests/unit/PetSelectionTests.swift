@@ -37,22 +37,4 @@ final class PetSelectionTests: XCTestCase {
         var rng = SeededRNG(seed: 1)
         XCTAssertNil(PetSelection.choose(speciesIDs: [], using: &rng))
     }
-
-    func testChooseVariantDeterministicAndValid() throws {
-        let url = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .appendingPathComponent("assets/pets.json")
-        let cat = try PetLibrary.load(from: url)
-        let variants = try XCTUnwrap(cat.species(id: "sprout")?.stage("juvenile")?.states["idle"])
-        XCTAssertGreaterThan(variants.count, 1)
-
-        var r1 = SeededRNG(seed: 7)
-        var r2 = SeededRNG(seed: 7)
-        let a = PetSelection.chooseVariant(from: variants, using: &r1)
-        let b = PetSelection.chooseVariant(from: variants, using: &r2)
-        XCTAssertNotNil(a)
-        XCTAssertEqual(a?.id, b?.id)  // 同种子一致
-
-        var r3 = SeededRNG(seed: 1)
-        XCTAssertNil(PetSelection.chooseVariant(from: [], using: &r3))
-    }
 }

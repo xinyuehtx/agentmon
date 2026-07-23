@@ -33,13 +33,6 @@ if [ ! -f "$ICON" ]; then
 fi
 cp "$ICON" "$RES/AppIcon.icns"
 
-# 宠物数据（若缺失则现场生成）
-if [ ! -f "assets/pets.json" ]; then
-  echo "==> Generating pets"
-  swift scripts/make-pets.swift
-fi
-cp "assets/pets.json" "$RES/pets.json"
-
 # 宠物图集（原创光栅素材，若存在）
 if [ -d "assets/pets_raster" ]; then
   cp -R "assets/pets_raster" "$RES/pets_raster"

@@ -98,19 +98,34 @@ struct RasterPetView: View {
         let frames = store.frames(action)
         guard !frames.isEmpty else { return }
 
+        let n = frames.count
         let loop = key != "complete"
         let elapsed = max(0, date.timeIntervalSince(state.variantStart))
-        let raw = Int(elapsed * Double(action.fps))
-        let idx = loop ? raw % frames.count : min(raw, frames.count - 1)
-        let cg = frames[idx]
+        let cycle = Double(n) / Double(max(1, action.fps))  // 一轮秒数
+        // 连续帧位置（用于交叉溶解补帧，播放更顺滑）
+        let u: Double =
+            loop
+            ? (elapsed.truncatingRemainder(dividingBy: cycle) / cycle) * Double(n)
+            : min(elapsed / cycle, 0.999) * Double(max(1, n - 1))
+        let i = min(Int(u), n - 1)
+        let nextI = loop ? (i + 1) % n : min(i + 1, n - 1)
+        let f = u - Double(Int(u))
 
-        let iw = CGFloat(cg.width)
-        let ih = CGFloat(cg.height)
-        let scale = min(size.width / iw, size.height / ih)
-        let w = iw * scale
-        let h = ih * scale
-        let rect = CGRect(x: (size.width - w) / 2, y: size.height - h, width: w, height: h)  // 底部对齐
-        ctx.draw(Image(decorative: cg, scale: 1), in: rect)
+        // 帧尺寸一致（并集裁剪），同位绘制 → 交叉溶解即平滑补帧
+        func draw(_ cg: CGImage, opacity: Double) {
+            let iw = CGFloat(cg.width)
+            let ih = CGFloat(cg.height)
+            let scale = min(size.width / iw, size.height / ih)
+            let w = iw * scale
+            let h = ih * scale
+            var c = ctx
+            c.opacity = opacity
+            c.draw(
+                Image(decorative: cg, scale: 1),
+                in: CGRect(x: (size.width - w) / 2, y: size.height - h, width: w, height: h))
+        }
+        draw(frames[i], opacity: 1)
+        if f > 0.001 { draw(frames[nextI], opacity: f) }
     }
 
     private func actionKey(_ mood: PetState.Mood) -> String {
