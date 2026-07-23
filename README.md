@@ -14,17 +14,6 @@ agentmon 监控本地已安装的 Agent 客户端（Claude Code、Qoder、QoderW
 - 技术栈：原生 Swift（SwiftPM 包；macOS 13+ 菜单栏 App + 桌面宠物浮窗）
 - 需求文档：[`rfcs/`](./rfcs) · [`specs/`](./specs) · [`stories/`](./stories) · [`blog/`](./blog)
 
-## 构建与运行
-
-```bash
-swift build                 # 编译 Core + App + agentmon-hook
-swift test                  # 单元 + 集成测试（45 用例）
-swift-format lint --recursive Sources tests   # 静态检查（经 xcrun）
-
-.build/debug/agentmon --selftest   # 无 GUI 自检：验证摄取→计数→能量链路
-.build/debug/agentmon              # 启动菜单栏 App + 桌面宠物（需图形会话）
-```
-
 在菜单栏点击「启用 Claude 集成」/「启用 Qoder 集成」即可把上报 hooks 合并写入对应客户端的 `settings.json`
 （Claude Code → `~/.claude/settings.json`，Qoder → `~/.qoder/settings.json`；写前自动备份，可一键停用回滚）。
 两者共用同一套 hook 机制，上报时按客户端区分计数。
@@ -34,7 +23,7 @@ swift-format lint --recursive Sources tests   # 静态检查（经 xcrun）
 ## 使用与交互
 
 - **菜单栏**：猫图标 + `▶工作中 ⏸等待中 ✓已完成`；点开看「监控中 / 最近事件 / 集成状态 / 各客户端计数」。
-- **桌面宠物**：小猫浮窗随状态变化；**右键小猫 →「隐藏宠物」**，之后从菜单栏「显示宠物」重新打开；可拖动。
+- **桌面宠物**：像素精灵浮窗随状态变化（idle/工作/等待/完成动画）；**右键 →「隐藏宠物」**，之后从菜单栏「显示宠物」重开；可拖动。三只原创精灵（草/火/水）× 四阶段（蛋/幼年/成熟/完全），每次安装随机分到一只（卸载重装重掷）。图鉴/动画预览见 [`docs/pet-preview.html`](./docs/pet-preview.html)。
 - **能量/进化**：见下方「能量玩法」。
 
 ## 故障排查 / 诊断
@@ -49,9 +38,10 @@ swift-format lint --recursive Sources tests   # 静态检查（经 xcrun）
 
 ```bash
 swift build                 # 编译 Core + App + agentmon-hook
-swift test                  # 单元 + 集成测试（51 用例）
+swift test                  # 单元 + 集成测试（64 用例）
 swift-format lint --recursive Sources tests   # 静态检查（经 xcrun）
 swift scripts/make-icon.swift                 # 重新生成 App 图标
+swift scripts/make-pets.swift                 # 重新生成宠物数据/预览（assets/pets.json + docs/）
 
 .build/debug/agentmon --selftest   # 无 GUI 自检：验证摄取→计数→能量链路
 .build/debug/agentmon --doctor     # 无 GUI 打印诊断报告
@@ -62,10 +52,12 @@ swift scripts/make-icon.swift                 # 重新生成 App 图标
 
 ```
 Sources/Core/    纯逻辑（可测，无 UI 依赖）：TaskStore / EnergyEngine / SpoolIngestor /
-                 ClaudeHookInstaller / StateStore / MonitorCoordinator / Diagnostics / AgentmonLog
-Sources/App/     菜单栏 App + 宠物浮窗（AppKit + SwiftUI）+ --selftest / --doctor
-Sources/Hook/    agentmon-hook：Claude Code hook 上报器（读 stdin → 原子写 spool）
-scripts/         package.sh（打 .app）· make-icon.swift（生成图标）
+                 ClaudeHookInstaller / StateStore / MonitorCoordinator / Diagnostics / AgentmonLog /
+                 PetLibrary / PetSelection
+Sources/App/     菜单栏 App + 像素宠物浮窗（AppKit + SwiftUI）+ --selftest / --doctor
+Sources/Hook/    agentmon-hook：Claude Code / Qoder hook 上报器（读 stdin → 原子写 spool）
+assets/pets.json 宠物精灵/动画数据（由 scripts/make-pets.swift 生成）
+scripts/         package.sh（打 .app）· make-icon.swift（图标）· make-pets.swift（宠物）
 tests/unit/      单元测试     tests/integration/  集成测试     tests/e2e/  XCUITest 场景
 ```
 

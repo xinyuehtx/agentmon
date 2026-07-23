@@ -33,6 +33,13 @@ if [ ! -f "$ICON" ]; then
 fi
 cp "$ICON" "$RES/AppIcon.icns"
 
+# 宠物数据（若缺失则现场生成）
+if [ ! -f "assets/pets.json" ]; then
+  echo "==> Generating pets"
+  swift scripts/make-pets.swift
+fi
+cp "assets/pets.json" "$RES/pets.json"
+
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

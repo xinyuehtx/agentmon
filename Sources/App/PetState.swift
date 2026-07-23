@@ -12,4 +12,6 @@ final class PetState: ObservableObject {
     @Published var working: Int = 0
     @Published var waiting: Int = 0
     @Published var completed: Int = 0
+    @Published var species: String = "sprout"
+    @Published var stage: String = "egg"
 }

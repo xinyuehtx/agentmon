@@ -37,6 +37,8 @@ public final class MonitorCoordinator {
     public private(set) var eventsSeen: Int = 0
     /// 当前完成计数所属的本地日期（跨天清零用）。
     private var completedDay: String = ""
+    /// 本次安装分配到的宠物物种 id（App 设置，随状态持久化）。
+    public var species: String?
 
     public init(ingestor: SpoolIngestor, engine: EnergyEngine) {
         self.ingestor = ingestor
@@ -129,6 +131,7 @@ public final class MonitorCoordinator {
         return PersistentState(
             energy: engine.energy, level: engine.level,
             completedByClient: completed, lastTick: now,
-            completedDay: completedDay.isEmpty ? Self.dayString(now) : completedDay)
+            completedDay: completedDay.isEmpty ? Self.dayString(now) : completedDay,
+            species: species)
     }
 }

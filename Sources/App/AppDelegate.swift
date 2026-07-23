@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var timer: Timer?
     private let petState = PetState()
     private var lastSnapshot: MonitorSnapshot?
+    private let catalog = PetAssets.load() ?? PetCatalog(schemaVersion: 0, species: [])
+    private var lastCompleted = 0
 
     private let stateStore = StateStore(
         stateURL: AgentmonPaths.stateFile,
@@ -66,6 +68,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         coordinator.restore(
             completedByClient: loaded?.completedByClient ?? [:],
             day: loaded?.completedDay, now: Date())
+
+        // 宠物物种：读持久化，否则随机分配一次（卸载重装因 state.json 丢失而重掷）
+        let resolvedSpecies =
+            loaded?.species
+            ?? {
+                var rng = SystemRandomNumberGenerator()
+                return PetSelection.choose(speciesIDs: catalog.speciesIDs, using: &rng)
+                    ?? catalog.species.first?.id ?? "sprout"
+            }()
+        coordinator.species = resolvedSpecies
+        petState.species = resolvedSpecies
+        lastCompleted = (loaded?.completedByClient.values.reduce(0, +)) ?? 0
+        AgentmonLog.shared.info("pet", "物种=\(resolvedSpecies)")
         AgentmonLog.shared.info(
             "app",
             "集成状态=\((try? installer.isInstalled()) == true ? "已启用" : "未启用") "
@@ -98,7 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func setupPetPanel() {
         let host = NSHostingView(
-            rootView: CatView(state: petState, onHide: { [weak self] in self?.hidePet() }))
+            rootView: PixelPetView(state: petState, catalog: catalog, onHide: { [weak self] in self?.hidePet() }))
         let panel = PetPanel(content: host)
         panel.orderFrontRegardless()
         petPanel = panel
@@ -134,8 +149,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         petState.working = snap.totalWorking
         petState.waiting = snap.totalWaiting
         petState.completed = snap.totalCompleted
-        if petState.mood == .evolve {
-            petState.mood = snap.totalWorking > 0 ? .working : .idle  // 进化演出后回落
+        petState.stage = PetSelection.stage(forLevel: snap.level)
+        if snap.totalCompleted > lastCompleted {
+            petState.mood = .celebrate  // 刚完成任务 → 撒花演出
+        } else if petState.mood == .evolve || petState.mood == .celebrate {
+            petState.mood = snap.totalWorking > 0 ? .working : (snap.totalWaiting > 0 ? .waiting : .idle)
         } else if snap.totalWorking > 0 {
             petState.mood = .working
         } else if snap.totalWaiting > 0 {
@@ -143,6 +161,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             petState.mood = .idle
         }
+        lastCompleted = snap.totalCompleted
     }
 
     // MARK: - Menu

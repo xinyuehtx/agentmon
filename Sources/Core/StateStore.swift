@@ -8,16 +8,19 @@ public struct PersistentState: Codable, Equatable {
     public var lastTick: Date
     /// 完成计数所属日期（本地 YYYY-MM-DD）；跨天清零用。旧文件无此字段 → nil。
     public var completedDay: String?
+    /// 本次安装随机分配到的宠物物种 id；旧文件/首次为 nil（App 会随机并回填）。
+    public var species: String?
 
     public init(
         energy: Double, level: Int, completedByClient: [String: Int], lastTick: Date,
-        completedDay: String? = nil
+        completedDay: String? = nil, species: String? = nil
     ) {
         self.energy = energy
         self.level = level
         self.completedByClient = completedByClient
         self.lastTick = lastTick
         self.completedDay = completedDay
+        self.species = species
     }
 }
 
