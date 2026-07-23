@@ -4,20 +4,25 @@ public enum HookInstallError: Error, Equatable {
     case invalidSettingsJSON
 }
 
-/// 向用户 `~/.claude/settings.json` 合并注入 / 精确回滚 agentmon 的 hooks。
-/// 契约见 specs/agent-task-monitor.md §5.4。
+/// 向 Claude Code / Qoder 的 `settings.json` 合并注入 / 精确回滚 agentmon 的 hooks。
+/// 契约见 specs/agent-task-monitor.md §5.4。（通用：由 `settingsURL` + `events` 决定目标客户端。）
 ///
 /// 安全约束：写前备份、幂等、按 `reporterCommand` 精确定位 agentmon 项、JSON 损坏时中止不写。
 public final class ClaudeHookInstaller {
 
     private let settingsURL: URL
     private let reporterCommand: String
-    private let events = ["UserPromptSubmit", "Notification", "Stop"]  // MVP 注入恰好 3 个
+    private let events: [String]
     private let fm = FileManager.default
 
-    public init(settingsURL: URL, reporterCommand: String) {
+    public init(
+        settingsURL: URL,
+        reporterCommand: String,
+        events: [String] = ["UserPromptSubmit", "Notification", "Stop"]
+    ) {
         self.settingsURL = settingsURL
         self.reporterCommand = reporterCommand
+        self.events = events
     }
 
     private var backupURL: URL {

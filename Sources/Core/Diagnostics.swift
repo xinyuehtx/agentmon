@@ -19,7 +19,9 @@ public enum Diagnostics {
         spool: URL,
         stateFile: URL,
         now: Date,
-        recentLog: [String]
+        recentLog: [String],
+        qoderSettings: URL? = nil,
+        qoderInstaller: ClaudeHookInstaller? = nil
     ) -> String {
         let fm = FileManager.default
         var out: [String] = []
@@ -40,6 +42,15 @@ public enum Diagnostics {
         line("上报器可执行：\(hookExists && fm.isExecutableFile(atPath: reporterCommand) ? "是" : "否")")
         line("提示：启用集成后需在 Claude Code【新开会话】，hooks 才会加载。")
         line()
+
+        if let qoderSettings = qoderSettings, let qoderInstaller = qoderInstaller {
+            line("【Qoder 集成】")
+            line("settings 路径：\(qoderSettings.path)")
+            line("settings 存在：\(fm.fileExists(atPath: qoderSettings.path) ? "是" : "否")")
+            line("agentmon hooks：\((try? qoderInstaller.isInstalled()) == true ? "已启用 ✓" : "未启用 ✗")")
+            line("提示：启用后需在 Qoder 中【新开会话】。")
+            line()
+        }
 
         line("【事件队列 spool】")
         line("路径：\(spool.path)")

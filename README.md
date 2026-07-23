@@ -25,9 +25,11 @@ swift-format lint --recursive Sources tests   # 静态检查（经 xcrun）
 .build/debug/agentmon              # 启动菜单栏 App + 桌面宠物（需图形会话）
 ```
 
-在菜单栏点击「启用 Claude 集成」即可把上报 hooks 合并写入 `~/.claude/settings.json`（写前自动备份，可一键停用回滚）。
+在菜单栏点击「启用 Claude 集成」/「启用 Qoder 集成」即可把上报 hooks 合并写入对应客户端的 `settings.json`
+（Claude Code → `~/.claude/settings.json`，Qoder → `~/.qoder/settings.json`；写前自动备份，可一键停用回滚）。
+两者共用同一套 hook 机制，上报时按客户端区分计数。
 
-> ⚠️ **启用集成后，需在 Claude Code 中新开一个会话**，hooks 才会加载生效——之后跑任务即可在菜单栏看到计数变化。
+> ⚠️ **启用集成后，需在对应客户端（Claude Code / Qoder）中新开一个会话**，hooks 才会加载生效——之后跑任务即可在菜单栏看到计数变化。
 
 ## 使用与交互
 

@@ -19,6 +19,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settingsURL: AgentmonPaths.claudeSettings,
         reporterCommand: AppInfo.reporterCommand()
     )
+    // Qoder 与 Claude Code 共用同一 hooks 机制；上报器带 "Qoder" 参数以区分客户端。
+    private lazy var qoderInstaller = ClaudeHookInstaller(
+        settingsURL: AgentmonPaths.qoderSettings,
+        reporterCommand: "\(AppInfo.reporterCommand()) Qoder",
+        events: ["UserPromptSubmit", "Notification", "Stop", "SubagentStart"]
+    )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AgentmonLog.shared.configure(fileURL: AgentmonPaths.logFile)
@@ -158,9 +164,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
 
         let installed = (try? installer.isInstalled()) ?? false
+        let qoderInstalled = (try? qoderInstaller.isInstalled()) ?? false
         disabled("Claude 集成：\(installed ? "已启用 ✓" : "未启用 ✗")")
+        disabled("Qoder 集成：\(qoderInstalled ? "已启用 ✓" : "未启用 ✗")")
         if snap.clients.isEmpty {
-            disabled("尚未收到事件 —— 启用集成并在 Claude Code 新开会话")
+            disabled("尚未收到事件 —— 启用集成并在客户端新开会话")
         } else {
             for c in snap.clients {
                 disabled("\(c.client)   ▶\(c.counts.working) ⏸\(c.counts.waiting) ✓\(c.counts.completed)")
@@ -173,7 +181,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             action: #selector(togglePet))
         addAction(
             to: menu, title: installed ? "停用 Claude 集成" : "启用 Claude 集成",
-            action: #selector(toggleIntegration))
+            action: #selector(toggleClaude))
+        addAction(
+            to: menu, title: qoderInstalled ? "停用 Qoder 集成" : "启用 Qoder 集成",
+            action: #selector(toggleQoder))
         addAction(to: menu, title: "运行诊断…", action: #selector(runDiagnostics))
         addAction(to: menu, title: "打开日志文件", action: #selector(openLog))
 
@@ -205,27 +216,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if panel.isVisible { panel.orderOut(nil) } else { panel.orderFrontRegardless() }
     }
 
-    @objc private func toggleIntegration() {
+    @objc private func toggleClaude() { toggleIntegration(installer, name: "Claude Code") }
+    @objc private func toggleQoder() { toggleIntegration(qoderInstaller, name: "Qoder") }
+
+    private func toggleIntegration(_ installer: ClaudeHookInstaller, name: String) {
         do {
             if (try? installer.isInstalled()) == true {
                 try installer.uninstall()
             } else {
                 try installer.install()
-                notifyIntegrationEnabled()
+                notifyIntegrationEnabled(name)
             }
         } catch {
-            AgentmonLog.shared.error("hook", "集成操作失败：\(error)")
+            AgentmonLog.shared.error("hook", "\(name) 集成操作失败：\(error)")
             let alert = NSAlert()
-            alert.messageText = "Claude 集成操作失败"
+            alert.messageText = "\(name) 集成操作失败"
             alert.informativeText = "\(error)"
             alert.runModal()
         }
     }
 
-    private func notifyIntegrationEnabled() {
+    private func notifyIntegrationEnabled(_ name: String) {
         let alert = NSAlert()
-        alert.messageText = "Claude 集成已启用"
-        alert.informativeText = "请在 Claude Code 中新开一个会话，hooks 才会生效。之后跑任务即可在此看到计数。"
+        alert.messageText = "\(name) 集成已启用"
+        alert.informativeText = "请在 \(name) 中新开一个会话，hooks 才会生效。之后跑任务即可在此看到计数。"
         alert.runModal()
     }
 
@@ -238,7 +252,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             spool: AgentmonPaths.spool,
             stateFile: AgentmonPaths.stateFile,
             now: Date(),
-            recentLog: AgentmonLog.shared.recentLines(20))
+            recentLog: AgentmonLog.shared.recentLines(20),
+            qoderSettings: AgentmonPaths.qoderSettings,
+            qoderInstaller: qoderInstaller)
         let url = AgentmonPaths.diagnosticsFile
         try? report.data(using: .utf8)?.write(to: url)
         NSWorkspace.shared.open(url)

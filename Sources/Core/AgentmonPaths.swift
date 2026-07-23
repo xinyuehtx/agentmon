@@ -25,4 +25,12 @@ public enum AgentmonPaths {
         return FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/settings.json")
     }
+
+    public static var qoderSettings: URL {
+        if let override = ProcessInfo.processInfo.environment["AGENTMON_QODER_SETTINGS"], !override.isEmpty {
+            return URL(fileURLWithPath: override)
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".qoder/settings.json")
+    }
 }
