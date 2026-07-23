@@ -42,6 +42,8 @@
 - **Codable 字段的蛇形命名触发 `AlwaysUseLowerCamelCase`**：用 `CodingKeys` 把 `hook_event_name` 等映射到 camelCase 属性即可。
 - **SwiftPM 校验所有 target 路径必须存在**：只写了 Core 就跑 `swift test` 会因 `Sources/App` 不存在而报错——得先把 App/Hook 目录建好。
 - **无图形会话跑 GUI**：菜单栏 App 无法在无头环境渲染。用 `--selftest` 子命令无 GUI 地跑通「摄取→计数→能量」链路，作为可自动化的端到端验证。
+- **XCUITest 需真 `.xcodeproj` + GUI**（补 Step 9 时踩到）：SwiftPM 承载不了 UI 测试 target，用 xcodegen 从 `project.yml` 生成工程；`菜单栏 NSStatusItem 不可被 XCUITest 寻址`，只能测宠物窗 `NSPanel`。本地无头 shell 跑 XCUITest 会在 bootstrap 被 kill，只能到「编译级」，真正运行交给 CI。
+- **xcodegen 生成的工程 `objectVersion 77`（Xcode 16 格式）**：GitHub runner 默认 Xcode 15.4 读不了（`Unable to read project`）。修复：uitest job 用 `setup-xcode@latest-stable`（拿到 Xcode 16.2）。
 
 ## 5. 验证结果
 
@@ -49,8 +51,8 @@
 - `swift-format lint`：**0 warning**。
 - `swift build`：通过；`agentmon --selftest` → `completed=1 working=0 energy=30 level=1 -> OK`。
 - `agentmon-hook` 真实烟测：stdin JSON → 正确原子写出 spool 文件。
-
-**未尽**：XCUITest E2E（Step 9）——需完整 Xcode App 工程与图形会话，已在 [`tests/e2e/README.md`](../tests/e2e/README.md) 固化场景，留待后续；当前以 `--selftest` 作为替代的端到端验证。
+- **XCUITest E2E（Step 9，CI 上 Xcode 16.2）**：`agentmonUITests` **2 用例全通过**（`testPetShowsWorking` / `testPetReturnsToIdleAfterCompletion`）——真实 spool → pump → 宠物窗状态链路验证通过。
+- **CI（GitHub Actions）**：`check` / `uitest` / `package` 三 job 全绿。
 
 ## 6. 可复用经验
 
