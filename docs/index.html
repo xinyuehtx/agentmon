@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>agentmon · Agent 小精灵</title>
+<meta name="description" content="agentmon —— macOS 上的 Agent 长任务监控工具，用一只 AI 原创小猫陪你养成。" />
+<style>
+  :root {
+    --bg: #0f1115; --card: #171a21; --fg: #e8eaed; --muted: #9aa0aa;
+    --brand1: #ffbd54; --brand2: #ff8a12; --line: #262b35; --code: #11141a;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#fff8f0; --card:#fff; --fg:#20242c; --muted:#6b7280; --line:#f0e2d0; --code:#fff4e6; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "SF Pro Text", "PingFang SC", system-ui, sans-serif;
+    background: var(--bg); color: var(--fg); line-height: 1.65; }
+  a { color: var(--brand2); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px; }
+  header { text-align: center; padding: 72px 20px 40px; }
+  .icon { width: 116px; height: 116px; border-radius: 26px;
+    box-shadow: 0 14px 40px rgba(255,138,18,.35); display: block; margin: 0 auto 22px; }
+  h1 { font-size: 40px; margin: 0 0 6px; letter-spacing: -.5px; }
+  .tag { color: var(--muted); font-size: 18px; margin: 0 0 24px; }
+  .btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn { display: inline-block; padding: 11px 22px; border-radius: 12px; font-weight: 600; }
+  .btn.primary { background: linear-gradient(180deg,var(--brand1),var(--brand2)); color: #3a2400; }
+  .btn.ghost { border: 1px solid var(--line); color: var(--fg); }
+  section { padding: 26px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: 22px; margin: 6px 0 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(230px,1fr)); gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; }
+  .card p { margin: 0; color: var(--muted); font-size: 14px; }
+  pre { background: var(--code); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px; overflow-x: auto; font-size: 13px; }
+  code { font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; padding: 40px 20px 64px; }
+</style>
+</head>
+<body>
+<header>
+  <svg class="icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-label="agentmon icon">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffbd54"/><stop offset="1" stop-color="#ff8517"/>
+    </linearGradient></defs>
+    <rect x="6" y="6" width="88" height="88" rx="21" fill="url(#g)"/>
+    <path d="M31 40 L28 20 L44 33 Z M69 40 L72 20 L56 33 Z" fill="#fff"/>
+    <circle cx="50" cy="52" r="21" fill="#fff"/>
+    <circle cx="42" cy="50" r="3.2" fill="#33281c"/>
+    <circle cx="58" cy="50" r="3.2" fill="#33281c"/>
+    <path d="M50 57 L46 53 L54 53 Z" fill="#ff7a3d"/>
+  </svg>
+  <h1>agentmon 🐱</h1>
+  <p class="tag">Agent 小精灵 —— macOS 上的 Agent 长任务监控，用一只 AI 原创小猫陪你养成。</p>
+  <div class="btns">
+    <a class="btn primary" href="https://github.com/xinyuehtx/agentmon/releases/latest">下载最新版</a>
+    <a class="btn ghost" href="https://github.com/xinyuehtx/agentmon">GitHub 源码</a>
+  </div>
+</header>
+
+<div class="wrap">
+  <section>
+    <h2>它做什么</h2>
+    <p>监控本地 Agent 客户端（Claude Code 等）长任务的 <strong>启动 / 暂停 / 结束</strong>，用两种形态呈现：</p>
+    <div class="grid">
+      <div class="card"><h3>🧭 菜单栏</h3><p>实时显示每个客户端「工作中 / 等待中 / 已完成」数量，一眼掌握全局。</p></div>
+      <div class="card"><h3>🐱 桌面宠物</h3><p>小猫随你的工作状态积累/消耗能量，能量达门槛触发进化换肤。右键可隐藏，菜单栏再唤出。</p></div>
+      <div class="card"><h3>🔒 本地 & 隐私</h3><p>纯本地处理，无网络上报；日志只记事件元数据，绝不记录任务内容。</p></div>
+      <div class="card"><h3>🩺 可自诊断</h3><p><code>--doctor</code> 与菜单「运行诊断」一键排查监控为何不工作。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>能量玩法</h2>
+    <table>
+      <tr><th>事件</th><th>能量变化（默认，可配置）</th></tr>
+      <tr><td>工作中任务</td><td>+2 / 分钟</td></tr>
+      <tr><td>等待中任务</td><td>−1 / 分钟</td></tr>
+      <tr><td>完成任务</td><td>+30（一次性）</td></tr>
+      <tr><td>无任务</td><td>−0.5 / 分钟</td></tr>
+    </table>
+    <p style="color:var(--muted);font-size:14px;margin-top:12px">
+      门槛 Lv2=300 / Lv3=900 / Lv4=2000，等级单调不回退；「已完成」按天清零。</p>
+  </section>
+
+  <section>
+    <h2>快速开始</h2>
+    <pre><code># 下载 Release 里的 agentmon.zip，解压后拖入「应用程序」，启动即可
+# 首次启用集成后，请在 Claude Code 中【新开一个会话】，hooks 才会生效
+
+# 从源码构建：
+git clone https://github.com/xinyuehtx/agentmon.git &amp;&amp; cd agentmon
+swift build
+.build/debug/agentmon --doctor   # 无 GUI 打印诊断报告</code></pre>
+  </section>
+
+  <section>
+    <h2>看不到监控信息？</h2>
+    <div class="grid">
+      <div class="card"><h3>1 · 运行诊断</h3><p>菜单「运行诊断…」或 <code>agentmon --doctor</code>，检查集成/上报器/spool/状态。</p></div>
+      <div class="card"><h3>2 · 看日志</h3><p>菜单「打开日志文件」查看事件是否被摄取。</p></div>
+      <div class="card"><h3>3 · 新开会话</h3><p>最常见原因：启用集成后没有新开 Claude Code 会话。</p></div>
+    </div>
+  </section>
+</div>
+
+<footer>
+  用 <a href="https://claude.com/claude-code">Claude Code</a> 按
+  <a href="https://github.com/xinyuehtx/agentmon/blob/main/AGENTS.md">AGENTS.md 工作流</a> 打造 ·
+  <a href="https://github.com/xinyuehtx/agentmon">xinyuehtx/agentmon</a>
+</footer>
+</body>
+</html>
