@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Tauri / Rust (if used)
+src-tauri/target/
+target/
+
+# Swift / Xcode (if used)
+.build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# macOS
+.DS_Store
+
+# Env / logs
+.env
+.env.local
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Test / coverage
+coverage/
+test-results/
+playwright-report/
+
+# agentmon local runtime data
+.agentmon/
+*.local
