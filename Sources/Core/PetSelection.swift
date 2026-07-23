@@ -16,4 +16,11 @@ public enum PetSelection {
     ) -> String? {
         ids.randomElement(using: &rng)
     }
+
+    /// 从某状态的多个动作变体中随机挑一个。
+    public static func chooseVariant<R: RandomNumberGenerator>(
+        from variants: [PetVariant], using rng: inout R
+    ) -> PetVariant? {
+        variants.randomElement(using: &rng)
+    }
 }

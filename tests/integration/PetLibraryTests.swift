@@ -2,7 +2,7 @@ import XCTest
 
 @testable import agentmonCore
 
-/// 校验实际生成的 assets/pets.json（3 物种 × 4 阶段 × 4 动作，帧/调色板自洽）。
+/// 校验实际生成的 assets/pets.json（schemaVersion 2：矢量部件 + 关键帧/粒子动画）。
 final class PetLibraryTests: XCTestCase {
 
     private func loadCatalog() throws -> PetCatalog {
@@ -13,30 +13,37 @@ final class PetLibraryTests: XCTestCase {
 
     func testCatalogShape() throws {
         let cat = try loadCatalog()
+        XCTAssertEqual(cat.schemaVersion, 2)
         XCTAssertEqual(cat.speciesIDs.sorted(), ["aqua", "ember", "sprout"])
         for sp in cat.species {
             XCTAssertFalse(sp.palette.isEmpty)
             XCTAssertEqual(sp.stages.map(\.stage), ["egg", "juvenile", "mature", "final"])
             for st in sp.stages {
+                XCTAssertFalse(st.parts.isEmpty, "\(sp.id)/\(st.stage) 无部件")
+                XCTAssertGreaterThan(st.viewBox, 0)
                 for key in ["idle", "working", "waiting", "complete"] {
-                    XCTAssertFalse(st.anims[key]?.frames.isEmpty ?? true, "\(sp.id)/\(st.stage) 缺 \(key)")
+                    XCTAssertFalse(st.states[key]?.isEmpty ?? true, "\(sp.id)/\(st.stage) 缺状态 \(key)")
                 }
-                XCTAssertEqual(st.anims["complete"]?.loop, false)  // 完成动画一次性
+                for v in st.states["complete"] ?? [] {
+                    XCTAssertFalse(v.loop, "complete 变体应为一次性")
+                }
             }
         }
     }
 
-    func testFramesAreWellFormed() throws {
+    func testVariantTracksReferenceRealParts() throws {
         let cat = try loadCatalog()
         for sp in cat.species {
             for st in sp.stages {
-                for (_, anim) in st.anims {
-                    for frame in anim.frames {
-                        XCTAssertEqual(Set(frame.map(\.count)).count, 1, "\(sp.id)/\(st.stage) 行宽不一致")
-                        for row in frame {
-                            for ch in row where ch != "." {
-                                XCTAssertNotNil(sp.palette[String(ch)], "\(sp.id) 缺色位 \(ch)")
-                            }
+                let partNames = Set(st.parts.map(\.name))
+                for (_, variants) in st.states {
+                    for v in variants {
+                        XCTAssertFalse(v.root.isEmpty, "\(sp.id)/\(st.stage)/\(v.id) root 空")
+                        for name in v.tracks.keys {
+                            XCTAssertTrue(partNames.contains(name), "\(sp.id)/\(st.stage)/\(v.id) 轨道引用未知部件 \(name)")
+                        }
+                        for e in v.emitters {
+                            XCTAssertGreaterThan(e.count, 0)
                         }
                     }
                 }
@@ -44,10 +51,22 @@ final class PetLibraryTests: XCTestCase {
         }
     }
 
-    func testDecodeInline() throws {
-        let json =
-            ##"{"schemaVersion":1,"species":[{"id":"x","name":"X","element":"grass","palette":{"A":"#ffffff"},"stages":[{"stage":"egg","anims":{"idle":{"fps":3,"loop":true,"frames":[["A."]]}}}]}]}"##
-        let cat = try PetLibrary.decode(Data(json.utf8))
-        XCTAssertEqual(cat.species(id: "x")?.stage("egg")?.anims["idle"]?.fps, 3)
+    func testMultipleVariantsPerAttack() throws {
+        let cat = try loadCatalog()
+        // 非蛋阶段的 working / idle 应有多个可随机变体
+        let juv = cat.species(id: "aqua")!.stage("juvenile")!
+        XCTAssertGreaterThan(juv.states["working"]!.count, 1)  // 水枪/泡泡
+        XCTAssertGreaterThan(juv.states["idle"]!.count, 1)
+    }
+
+    func testFillKeysAreInPalette() throws {
+        let cat = try loadCatalog()
+        for sp in cat.species {
+            for st in sp.stages {
+                for part in st.parts {
+                    XCTAssertNotNil(sp.palette[part.fill], "\(sp.id) 部件 \(part.name) 缺填充色 \(part.fill)")
+                }
+            }
+        }
     }
 }

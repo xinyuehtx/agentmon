@@ -13,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lastSnapshot: MonitorSnapshot?
     private let catalog = PetAssets.load() ?? PetCatalog(schemaVersion: 0, species: [])
     private var lastCompleted = 0
+    private var lastStateKey = ""
+    private var lastStage = ""
 
     private let stateStore = StateStore(
         stateURL: AgentmonPaths.stateFile,
@@ -113,7 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func setupPetPanel() {
         let host = NSHostingView(
-            rootView: PixelPetView(state: petState, catalog: catalog, onHide: { [weak self] in self?.hidePet() }))
+            rootView: PetView(state: petState, catalog: catalog, onHide: { [weak self] in self?.hidePet() }))
         let panel = PetPanel(content: host)
         panel.orderFrontRegardless()
         petPanel = panel
@@ -162,6 +164,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             petState.mood = .idle
         }
         lastCompleted = snap.totalCompleted
+        refreshVariant()
+    }
+
+    /// mood → 状态键（idle/working/waiting/complete）。
+    private func stateKey(for mood: PetState.Mood) -> String {
+        switch mood {
+        case .idle: return "idle"
+        case .working: return "working"
+        case .waiting: return "waiting"
+        case .celebrate, .evolve: return "complete"
+        }
+    }
+
+    /// 进入新状态/阶段时，随机挑一个动作变体并重置播放起点。
+    private func refreshVariant() {
+        let key = stateKey(for: petState.mood)
+        guard key != lastStateKey || petState.stage != lastStage else { return }
+        lastStateKey = key
+        lastStage = petState.stage
+        let variants = catalog.species(id: petState.species)?.stage(petState.stage)?.states[key] ?? []
+        var rng = SystemRandomNumberGenerator()
+        petState.variant = PetSelection.chooseVariant(from: variants, using: &rng)
+        petState.variantStart = Date()
     }
 
     // MARK: - Menu
