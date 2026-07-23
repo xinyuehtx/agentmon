@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let petState = PetState()
     private var lastSnapshot: MonitorSnapshot?
     private let catalog = PetAssets.load() ?? PetCatalog(schemaVersion: 0, species: [])
+    private let rasterStore = RasterPetStore.load()
     private var lastCompleted = 0
     private var lastStateKey = ""
     private var lastStage = ""
@@ -71,18 +72,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             completedByClient: loaded?.completedByClient ?? [:],
             day: loaded?.completedDay, now: Date())
 
-        // 宠物物种：读持久化，否则随机分配一次（卸载重装因 state.json 丢失而重掷）
-        let resolvedSpecies =
-            loaded?.species
-            ?? {
-                var rng = SystemRandomNumberGenerator()
-                return PetSelection.choose(speciesIDs: catalog.speciesIDs, using: &rng)
-                    ?? catalog.species.first?.id ?? "sprout"
-            }()
+        // 宠物物种：优先用光栅图集包（原创素材），否则用矢量。读持久化，否则随机分配一次。
+        let activeIDs = rasterStore?.manifest.speciesIDs ?? catalog.speciesIDs
+        let resolvedSpecies: String
+        if let persisted = loaded?.species, activeIDs.contains(persisted) {
+            resolvedSpecies = persisted
+        } else {
+            var rng = SystemRandomNumberGenerator()
+            resolvedSpecies = PetSelection.choose(speciesIDs: activeIDs, using: &rng) ?? activeIDs.first ?? "sprout"
+        }
         coordinator.species = resolvedSpecies
         petState.species = resolvedSpecies
         lastCompleted = (loaded?.completedByClient.values.reduce(0, +)) ?? 0
-        AgentmonLog.shared.info("pet", "物种=\(resolvedSpecies)")
+        AgentmonLog.shared.info("pet", "物种=\(resolvedSpecies) 渲染=\(rasterStore != nil ? "raster" : "vector")")
         AgentmonLog.shared.info(
             "app",
             "集成状态=\((try? installer.isInstalled()) == true ? "已启用" : "未启用") "
@@ -114,8 +116,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func setupPetPanel() {
-        let host = NSHostingView(
-            rootView: PetView(state: petState, catalog: catalog, onHide: { [weak self] in self?.hidePet() }))
+        let host: NSView
+        if let store = rasterStore {
+            host = NSHostingView(
+                rootView: RasterPetView(state: petState, store: store, onHide: { [weak self] in self?.hidePet() }))
+        } else {
+            host = NSHostingView(
+                rootView: PetView(state: petState, catalog: catalog, onHide: { [weak self] in self?.hidePet() }))
+        }
         let panel = PetPanel(content: host)
         panel.orderFrontRegardless()
         petPanel = panel

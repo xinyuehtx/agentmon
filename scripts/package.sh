@@ -40,6 +40,11 @@ if [ ! -f "assets/pets.json" ]; then
 fi
 cp "assets/pets.json" "$RES/pets.json"
 
+# 宠物图集（原创光栅素材，若存在）
+if [ -d "assets/pets_raster" ]; then
+  cp -R "assets/pets_raster" "$RES/pets_raster"
+fi
+
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
