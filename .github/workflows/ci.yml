@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # CI 检测：编译 + 单元/集成测试 + 静态检查
+  check:
+    name: Build · Test · Lint
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Build
+        run: swift build
+
+      - name: Test
+        run: swift test
+
+      - name: Install swift-format
+        run: brew install swift-format
+
+      - name: Lint
+        run: swift-format lint --strict --recursive Sources tests
+
+  # 应用打包：组装 agentmon.app 并上传产物（tag 触发时附加到 Release）
+  package:
+    name: Package .app
+    needs: check
+    if: github.event_name != 'pull_request'
+    runs-on: macos-14
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package
+        run: ./scripts/package.sh "${GITHUB_REF_NAME}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentmon-app
+          path: dist/agentmon.zip
+          if-no-files-found: error
+
+      - name: Attach to Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/agentmon.zip
