@@ -45,6 +45,7 @@ public final class SpoolIngestor {
                 let record = try? JSONDecoder().decode(SpoolRecord.self, from: data),
                 let ts = iso.date(from: record.receivedAt)
             else {
+                AgentmonLog.shared.warn("spool", "跳过无法解析的文件 \(file.lastPathComponent)")
                 continue  // 损坏/无法解析 → 跳过
             }
             if let event = ClaudeEventMapper.map(

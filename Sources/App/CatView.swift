@@ -4,6 +4,8 @@ import SwiftUI
 /// MVP 实现，后续可替换为高保真 sprite 图集。
 struct CatView: View {
     @ObservedObject var state: PetState
+    /// 右键「隐藏宠物」回调（之后可从菜单栏「显示宠物」重新打开）。
+    var onHide: () -> Void = {}
 
     var body: some View {
         VStack(spacing: 8) {
@@ -28,6 +30,9 @@ struct CatView: View {
             }
         }
         .padding(10)
+        .contextMenu {
+            Button("隐藏宠物", action: onHide)
+        }
     }
 
     private var furColor: Color {

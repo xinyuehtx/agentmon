@@ -17,10 +17,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         configURL: AgentmonPaths.configFile)
     private lazy var installer = ClaudeHookInstaller(
         settingsURL: AgentmonPaths.claudeSettings,
-        reporterCommand: Self.reporterCommand()
+        reporterCommand: AppInfo.reporterCommand()
     )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AgentmonLog.shared.configure(fileURL: AgentmonPaths.logFile)
+        AgentmonLog.shared.info("app", "启动 agentmon v\(AppInfo.version)")
         setupCoordinator()
         setupStatusItem()
         setupPetPanel()
@@ -30,16 +32,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         persist()
+        AgentmonLog.shared.info("app", "退出")
+        AgentmonLog.shared.flush()
     }
 
     // MARK: - Setup
-
-    private static func reporterCommand() -> String {
-        if let dir = Bundle.main.executableURL?.deletingLastPathComponent() {
-            return dir.appendingPathComponent("agentmon-hook").path
-        }
-        return "agentmon-hook"
-    }
 
     private func setupCoordinator() {
         try? FileManager.default.createDirectory(at: AgentmonPaths.spool, withIntermediateDirectories: true)
@@ -60,18 +57,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.petState.mood = .evolve
             self?.petState.level = event.newLevel
         }
+        AgentmonLog.shared.info(
+            "app",
+            "集成状态=\((try? installer.isInstalled()) == true ? "已启用" : "未启用") "
+                + "spool=\(AgentmonPaths.spool.path)")
     }
 
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.title = "🐱"
+        if let image = Self.menubarImage() {
+            statusItem.button?.image = image
+            statusItem.button?.imagePosition = .imageLeading
+        } else {
+            statusItem.button?.title = "🐱"
+        }
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
     }
 
+    /// 菜单栏图标：优先 SF Symbol "cat"（macOS 14+），回退 "pawprint.fill"（11+），皆无则 nil。
+    private static func menubarImage() -> NSImage? {
+        for name in ["cat", "pawprint.fill"] {
+            if let image = NSImage(systemSymbolName: name, accessibilityDescription: "agentmon") {
+                image.isTemplate = true
+                return image
+            }
+        }
+        return nil
+    }
+
     private func setupPetPanel() {
-        let host = NSHostingView(rootView: CatView(state: petState))
+        let host = NSHostingView(
+            rootView: CatView(state: petState, onHide: { [weak self] in self?.hidePet() }))
         let panel = PetPanel(content: host)
         panel.orderFrontRegardless()
         petPanel = panel
@@ -99,7 +117,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateUI(_ snap: MonitorSnapshot) {
-        statusItem.button?.title = "🐱 ▶\(snap.totalWorking) ⏸\(snap.totalWaiting) ✓\(snap.totalCompleted)"
+        let prefix = statusItem.button?.image == nil ? "🐱 " : " "
+        statusItem.button?.title = "\(prefix)▶\(snap.totalWorking) ⏸\(snap.totalWaiting) ✓\(snap.totalCompleted)"
         petState.energy = snap.energy
         petState.level = snap.level
         petState.energyToNext = coordinator.engine.threshold(forLevel: snap.level)
@@ -121,47 +140,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let snap = lastSnapshot ?? coordinator.snapshot()
         let next = Int(coordinator.engine.threshold(forLevel: snap.level))
 
-        let header = NSMenuItem(
-            title: "Lv\(snap.level)   能量 \(Int(snap.energy))/\(next)",
-            action: nil, keyEquivalent: "")
-        header.isEnabled = false
-        menu.addItem(header)
+        func disabled(_ title: String) {
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            menu.addItem(item)
+        }
+
+        disabled("● 监控中")
+        disabled("最近事件：\(lastEventText(snap))")
+        disabled("Lv\(snap.level)   能量 \(Int(snap.energy))/\(next)")
         menu.addItem(.separator())
 
+        let installed = (try? installer.isInstalled()) ?? false
+        disabled("Claude 集成：\(installed ? "已启用 ✓" : "未启用 ✗")")
         if snap.clients.isEmpty {
-            let none = NSMenuItem(title: "暂无客户端事件", action: nil, keyEquivalent: "")
-            none.isEnabled = false
-            menu.addItem(none)
+            disabled("尚未收到事件 —— 启用集成并在 Claude Code 新开会话")
         } else {
             for c in snap.clients {
-                let item = NSMenuItem(
-                    title: "\(c.client)   ▶\(c.counts.working) ⏸\(c.counts.waiting) ✓\(c.counts.completed)",
-                    action: nil, keyEquivalent: ""
-                )
-                item.isEnabled = false
-                menu.addItem(item)
+                disabled("\(c.client)   ▶\(c.counts.working) ⏸\(c.counts.waiting) ✓\(c.counts.completed)")
             }
         }
         menu.addItem(.separator())
 
-        let petItem = NSMenuItem(
-            title: (petPanel?.isVisible ?? false) ? "隐藏宠物" : "显示宠物",
-            action: #selector(togglePet), keyEquivalent: "")
-        petItem.target = self
-        menu.addItem(petItem)
-
-        let installed = (try? installer.isInstalled()) ?? false
-        let integ = NSMenuItem(
-            title: installed ? "停用 Claude 集成" : "启用 Claude 集成",
-            action: #selector(toggleIntegration), keyEquivalent: "")
-        integ.target = self
-        menu.addItem(integ)
+        addAction(
+            to: menu, title: (petPanel?.isVisible ?? false) ? "隐藏宠物" : "显示宠物",
+            action: #selector(togglePet))
+        addAction(
+            to: menu, title: installed ? "停用 Claude 集成" : "启用 Claude 集成",
+            action: #selector(toggleIntegration))
+        addAction(to: menu, title: "运行诊断…", action: #selector(runDiagnostics))
+        addAction(to: menu, title: "打开日志文件", action: #selector(openLog))
 
         menu.addItem(.separator())
-        let quit = NSMenuItem(title: "退出 agentmon", action: #selector(quit), keyEquivalent: "q")
-        quit.target = self
-        menu.addItem(quit)
+        addAction(to: menu, title: "退出 agentmon", action: #selector(quit), key: "q")
     }
+
+    private func addAction(to menu: NSMenu, title: String, action: Selector, key: String = "") {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        item.target = self
+        menu.addItem(item)
+    }
+
+    private func lastEventText(_ snap: MonitorSnapshot) -> String {
+        guard let at = snap.lastEventAt else { return "暂无（尚未收到事件）" }
+        let age = Int(Date().timeIntervalSince(at))
+        if age < 0 { return "刚刚" }
+        if age < 60 { return "\(age) 秒前" }
+        if age < 3600 { return "\(age / 60) 分钟前" }
+        return "\(age / 3600) 小时前"
+    }
+
+    // MARK: - Actions
+
+    private func hidePet() { petPanel?.orderOut(nil) }
 
     @objc private func togglePet() {
         guard let panel = petPanel else { return }
@@ -174,13 +205,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 try installer.uninstall()
             } else {
                 try installer.install()
+                notifyIntegrationEnabled()
             }
         } catch {
+            AgentmonLog.shared.error("hook", "集成操作失败：\(error)")
             let alert = NSAlert()
             alert.messageText = "Claude 集成操作失败"
             alert.informativeText = "\(error)"
             alert.runModal()
         }
+    }
+
+    private func notifyIntegrationEnabled() {
+        let alert = NSAlert()
+        alert.messageText = "Claude 集成已启用"
+        alert.informativeText = "请在 Claude Code 中新开一个会话，hooks 才会生效。之后跑任务即可在此看到计数。"
+        alert.runModal()
+    }
+
+    @objc private func runDiagnostics() {
+        let report = Diagnostics.report(
+            appVersion: AppInfo.version,
+            claudeSettings: AgentmonPaths.claudeSettings,
+            reporterCommand: AppInfo.reporterCommand(),
+            installer: installer,
+            spool: AgentmonPaths.spool,
+            stateFile: AgentmonPaths.stateFile,
+            now: Date(),
+            recentLog: AgentmonLog.shared.recentLines(20))
+        let url = AgentmonPaths.diagnosticsFile
+        try? report.data(using: .utf8)?.write(to: url)
+        NSWorkspace.shared.open(url)
+    }
+
+    @objc private func openLog() {
+        let url = AgentmonPaths.logFile
+        if !FileManager.default.fileExists(atPath: url.path) {
+            try? Data("(暂无日志)\n".utf8).write(to: url)
+        }
+        NSWorkspace.shared.open(url)
     }
 
     @objc private func quit() {

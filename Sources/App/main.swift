@@ -7,6 +7,9 @@ import agentmonCore
 if CommandLine.arguments.contains("--selftest") {
     SelfTest.run()
 }
+if CommandLine.arguments.contains("--doctor") {
+    Doctor.run()
+}
 
 let app = NSApplication.shared
 let delegate = AppDelegate()

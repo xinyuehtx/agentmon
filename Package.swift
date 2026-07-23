@@ -17,7 +17,8 @@ let package = Package(
         .executableTarget(
             name: "agentmon",
             dependencies: ["agentmonCore"],
-            path: "Sources/App"
+            path: "Sources/App",
+            exclude: ["Resources"]  // AppIcon.icns 由 package.sh / xcodegen 直接打包，不参与 SPM 编译
         ),
         .executableTarget(
             name: "agentmonHook",

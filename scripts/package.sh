@@ -25,6 +25,14 @@ mkdir -p "$MACOS" "$RES"
 cp "$BIN_DIR/${APP_NAME}" "$MACOS/${APP_NAME}"
 cp "$BIN_DIR/${APP_NAME}-hook" "$MACOS/${APP_NAME}-hook"
 
+# 应用图标（若缺失则现场生成）
+ICON="Sources/App/Resources/AppIcon.icns"
+if [ ! -f "$ICON" ]; then
+  echo "==> Generating icon"
+  swift scripts/make-icon.swift
+fi
+cp "$ICON" "$RES/AppIcon.icns"
+
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -34,6 +42,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleDisplayName</key><string>agentmon</string>
     <key>CFBundleIdentifier</key><string>com.agentmon.app</string>
     <key>CFBundleExecutable</key><string>${APP_NAME}</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>
     <key>CFBundleVersion</key><string>${VERSION}</string>

@@ -18,6 +18,8 @@ public struct MonitorSnapshot: Equatable {
     public let energy: Double
     public let level: Int
     public let clients: [ClientSummary]
+    public let lastEventAt: Date?
+    public let eventsSeen: Int
 }
 
 /// 编排：摄取 spool → 更新 TaskStore → 结算 EnergyEngine → 输出快照。
@@ -29,10 +31,18 @@ public final class MonitorCoordinator {
     private let ingestor: SpoolIngestor
     public var onEvolve: ((EvolutionEvent) -> Void)?
 
+    /// 最近一次摄取到事件的时间（事件的 received_at 中最大者）。
+    public private(set) var lastEventAt: Date?
+    /// 累计摄取的事件数。
+    public private(set) var eventsSeen: Int = 0
+
     public init(ingestor: SpoolIngestor, engine: EnergyEngine) {
         self.ingestor = ingestor
         self.engine = engine
-        self.engine.onEvolve = { [weak self] event in self?.onEvolve?(event) }
+        self.engine.onEvolve = { [weak self] event in
+            AgentmonLog.shared.info("evolve", "→ Lv\(event.newLevel)")
+            self?.onEvolve?(event)
+        }
     }
 
     @discardableResult
@@ -43,7 +53,24 @@ public final class MonitorCoordinator {
         for event in events {
             let before = store.totalCompleted
             store.apply(event)
-            completions += (store.totalCompleted - before)
+            let delta = store.totalCompleted - before
+            completions += delta
+
+            AgentmonLog.shared.info("event", "\(event.client)/\(event.sessionID) \(event.kind.rawValue)")
+            if event.kind == .end && delta == 0 {
+                AgentmonLog.shared.warn(
+                    "event",
+                    "Stop 落到未知/空闲会话 \(event.sessionID)（可能 App 重启导致，不计完成）")
+            }
+        }
+
+        if !events.isEmpty {
+            eventsSeen += events.count
+            lastEventAt = events.map(\.timestamp).max()
+            AgentmonLog.shared.info(
+                "pump",
+                "ingested=\(events.count) completions=\(completions) "
+                    + "working=\(store.totalWorking) waiting=\(store.totalWaiting)")
         }
 
         if completions > 0 {
@@ -63,7 +90,9 @@ public final class MonitorCoordinator {
             totalCompleted: store.totalCompleted,
             energy: engine.energy,
             level: engine.level,
-            clients: clients
+            clients: clients,
+            lastEventAt: lastEventAt,
+            eventsSeen: eventsSeen
         )
     }
 

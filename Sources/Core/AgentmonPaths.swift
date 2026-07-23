@@ -15,6 +15,8 @@ public enum AgentmonPaths {
     public static var spool: URL { appSupport.appendingPathComponent("spool", isDirectory: true) }
     public static var stateFile: URL { appSupport.appendingPathComponent("state.json") }
     public static var configFile: URL { appSupport.appendingPathComponent("config.json") }
+    public static var logFile: URL { appSupport.appendingPathComponent("agentmon.log") }
+    public static var diagnosticsFile: URL { appSupport.appendingPathComponent("diagnostics.txt") }
 
     public static var claudeSettings: URL {
         if let override = ProcessInfo.processInfo.environment["AGENTMON_CLAUDE_SETTINGS"], !override.isEmpty {

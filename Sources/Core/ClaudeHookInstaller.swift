@@ -78,6 +78,7 @@ public final class ClaudeHookInstaller {
         }
         root["hooks"] = hooks
         try writeRoot(root)
+        AgentmonLog.shared.info("hook", "已启用 Claude 集成（注入 \(events.count) 个事件 hook）")
     }
 
     public func uninstall() throws {
@@ -100,6 +101,7 @@ public final class ClaudeHookInstaller {
             root["hooks"] = hooks
         }
         try writeRoot(root)
+        AgentmonLog.shared.info("hook", "已停用 Claude 集成（移除 agentmon hooks）")
     }
 
     public func isInstalled() throws -> Bool {
