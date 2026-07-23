@@ -3,7 +3,7 @@
 让文生图 AI 产出**风格一致、可切片**的原创宠物动画帧；回传后由 agentmon 切片、抠底、对齐、拼成逐帧动画。
 
 > 你只填「元素 + 动物」。所有提示词**强制原创**——不得像任何既有游戏/动画角色。
-> 帧越多越平滑：**推荐每个动作 12 帧**（最少 8）。
+> 帧越多越平滑：**推荐每个动作 30 帧**（最少 8）。
 
 ---
 
@@ -30,9 +30,9 @@ left to right: [egg] a speckled {ELEMENT} egg; [juvenile] tiny baby form;
 <STYLE block>
 ```
 
-## 模板 B —— 动作动画条（每个动作跑一次；**推荐 12 帧**）
+## 模板 B —— 动作动画条（每个动作跑一次；**推荐 30 帧**）
 
-填 `{ANIMAL}` `{ELEMENT}` `{STAGE}` `{ACTION}` `{N}`（N=12）。一张图 = 一个动作的 N 帧。
+填 `{ANIMAL}` `{ELEMENT}` `{STAGE}` `{ACTION}` `{N}`（N=30）。一张图 = 一个动作的 N 帧。
 
 ```
 A horizontal sprite sheet: {N} equal cells in ONE row, showing the SAME original
@@ -42,7 +42,7 @@ INCLUDING the in-between poses (not just start and end), so the sequence plays s
 For looping actions the last frame flows seamlessly back into the first.
 Character centered and identical scale in every cell.
 <STYLE block>
-Aspect ratio 24:9, high resolution.
+Aspect ratio 30:9, high resolution.
 ```
 
 **`{ACTION}` 文案**（逐个跑；`complete` 为一次性，其余循环）：
@@ -66,9 +66,9 @@ extra limbs, realistic, 3d render, photo
 
 - 先跑**模板 A** 定稿形象；再跑 B 时用「角色一致」功能保持同一只：
   Midjourney `--cref <A图URL>`；SD/Flux **同一 seed + IP-Adapter/image-to-image**；
-  GPT-4o / Nano-Banana 直接「保持这只角色完全不变，只改动作，输出 12 帧一行」。
+  GPT-4o / Nano-Banana 直接「保持这只角色完全不变，只改动作，输出 30 帧一行」。
 - **一次只生成一个动作**（同一动作的 N 帧），比一张图塞多动作稳得多。
-- 若模型输出宽度受限（塞不下 12 帧还清晰）：降到 **8 帧**，或用下面的「独立帧 / 动图」方式。
+- 若模型输出宽度受限（塞不下 30 帧还清晰）：降到 **8 帧**，或用下面的「独立帧 / 动图」方式。
 
 ---
 
@@ -78,7 +78,7 @@ extra limbs, realistic, 3d render, photo
 
 ### 方式 ① 独立帧（每帧一张，分辨率最高）
 - 让模型对同一动作输出 **N 张独立图**，每张是第 k 帧姿势，用角色一致功能保持同一只。
-- 命名：`{animal}_{element}_{stage}_{action}_01.png` … `_12.png`（两位序号，按顺序）。
+- 命名：`{animal}_{element}_{stage}_{action}_01.png` … `_30.png`（两位序号，按顺序）。
 
 ### 方式 ② 动图（视频/动画模型）
 - 用图生视频模型（如 Runway / Kling / Pika / Luma / Sora）：把模板 A 的定妆图作为首帧，
@@ -93,11 +93,13 @@ extra limbs, realistic, 3d render, photo
 1. 首选 **PNG 多帧条**（模板 B）；也接 **独立帧 PNG 序列** 或 **GIF/MP4**。
 2. 背景：优先透明；否则用纯 `#FF00FF` 洋红底（我来抠）。
 3. 命名：`{animal}_{element}_{stage}_{action}[...]`，四阶段（egg/juvenile/mature/final）齐全更好。
-4. **告诉我每个动作的帧数**（例如 12）。
+4. **告诉我每个动作的帧数**（例如 30）。
 
 ## agentmon 侧接入
 
-- 多帧条：`swift scripts/process-packs.swift <源目录> 160 <帧数>`（帧数默认 6；例 `... 160 12`）。
-  fps 按「一轮秒数」自动推导，帧越多越平滑而非越慢。
+- 多帧条：`swift scripts/process-packs.swift <源目录> [帧高=160]`。
+  **帧数自动检测**：抠底去分隔线后，用「空隙分行 + 列内容自相关求每行帧数」，单行横条、R×C 网格、
+  带特效/缺帧的行都能正确切分；fps 按「一轮秒数」推导，帧越多越平滑而非越慢。
+  个别非周期序列（如某个孵化图）若检测偏 ±1 帧，在脚本顶部 `layoutOverride` 里按文件名写死列数即可。
 - 独立帧序列 / GIF：告诉我格式，我给 `process-packs.swift` 加对应读取（GIF 用 CGImageSource 逐帧读，序列用序号拼装），很快。
 - App 与网页预览自动按 manifest 的帧数播放，并做交叉溶解补帧。

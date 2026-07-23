@@ -42,3 +42,6 @@ playwright-report/
 
 # Pages 部署时从 assets/pets_raster 拷入的预览副本（勿提交）
 /docs/pets_raster/
+
+# Playwright MCP artifacts
+.playwright-mcp/

@@ -11,16 +11,16 @@
             "complete" : {
               "fh" : 160,
               "file" : "bird_fire\/egg_complete.png",
-              "fps" : 12,
-              "frames" : 6,
-              "fw" : 103
+              "fps" : 7,
+              "frames" : 8,
+              "fw" : 131
             },
             "idle" : {
               "fh" : 160,
               "file" : "bird_fire\/egg_idle.png",
               "fps" : 6,
-              "frames" : 6,
-              "fw" : 106
+              "frames" : 8,
+              "fw" : 133
             }
           },
           "stage" : "egg"
@@ -30,30 +30,30 @@
             "complete" : {
               "fh" : 160,
               "file" : "bird_fire\/juvenile_complete.png",
-              "fps" : 12,
-              "frames" : 6,
-              "fw" : 101
+              "fps" : 7,
+              "frames" : 8,
+              "fw" : 126
             },
             "idle" : {
               "fh" : 160,
               "file" : "bird_fire\/juvenile_idle.png",
               "fps" : 6,
-              "frames" : 6,
-              "fw" : 104
+              "frames" : 8,
+              "fw" : 133
             },
             "waiting" : {
               "fh" : 160,
               "file" : "bird_fire\/juvenile_waiting.png",
-              "fps" : 8,
-              "frames" : 6,
-              "fw" : 121
+              "fps" : 9,
+              "frames" : 8,
+              "fw" : 131
             },
             "working" : {
               "fh" : 160,
               "file" : "bird_fire\/juvenile_working.png",
-              "fps" : 10,
-              "frames" : 6,
-              "fw" : 171
+              "fps" : 9,
+              "frames" : 8,
+              "fw" : 146
             }
           },
           "stage" : "juvenile"
@@ -63,30 +63,30 @@
             "complete" : {
               "fh" : 160,
               "file" : "bird_fire\/mature_complete.png",
-              "fps" : 12,
-              "frames" : 6,
-              "fw" : 107
+              "fps" : 8,
+              "frames" : 9,
+              "fw" : 187
             },
             "idle" : {
               "fh" : 160,
               "file" : "bird_fire\/mature_idle.png",
               "fps" : 6,
-              "frames" : 6,
-              "fw" : 100
+              "frames" : 8,
+              "fw" : 127
             },
             "waiting" : {
               "fh" : 160,
               "file" : "bird_fire\/mature_waiting.png",
-              "fps" : 8,
-              "frames" : 6,
-              "fw" : 122
+              "fps" : 11,
+              "frames" : 10,
+              "fw" : 145
             },
             "working" : {
               "fh" : 160,
               "file" : "bird_fire\/mature_working.png",
-              "fps" : 10,
-              "frames" : 6,
-              "fw" : 120
+              "fps" : 9,
+              "frames" : 8,
+              "fw" : 143
             }
           },
           "stage" : "mature"
@@ -96,30 +96,30 @@
             "complete" : {
               "fh" : 160,
               "file" : "bird_fire\/final_complete.png",
-              "fps" : 12,
-              "frames" : 6,
-              "fw" : 100
+              "fps" : 10,
+              "frames" : 12,
+              "fw" : 132
             },
             "idle" : {
               "fh" : 160,
               "file" : "bird_fire\/final_idle.png",
               "fps" : 6,
-              "frames" : 6,
-              "fw" : 107
+              "frames" : 8,
+              "fw" : 141
             },
             "waiting" : {
               "fh" : 160,
               "file" : "bird_fire\/final_waiting.png",
-              "fps" : 8,
-              "frames" : 6,
-              "fw" : 114
+              "fps" : 9,
+              "frames" : 8,
+              "fw" : 124
             },
             "working" : {
               "fh" : 160,
               "file" : "bird_fire\/final_working.png",
-              "fps" : 10,
-              "frames" : 6,
-              "fw" : 146
+              "fps" : 9,
+              "frames" : 8,
+              "fw" : 150
             }
           },
           "stage" : "final"
@@ -135,16 +135,16 @@
             "complete" : {
               "fh" : 160,
               "file" : "dog_cabbage\/egg_complete.png",
-              "fps" : 12,
-              "frames" : 6,
-              "fw" : 130
+              "fps" : 7,
+              "frames" : 8,
+              "fw" : 126
             },
             "idle" : {
               "fh" : 160,
               "file" : "dog_cabbage\/egg_idle.png",
               "fps" : 6,
-              "frames" : 6,
-              "fw" : 121
+              "frames" : 8,
+              "fw" : 137
             }
           },
           "stage" : "egg"
@@ -154,30 +154,30 @@
             "complete" : {
               "fh" : 160,
               "file" : "dog_cabbage\/juvenile_complete.png",
-              "fps" : 12,
-              "frames" : 6,
-              "fw" : 96
+              "fps" : 6,
+              "frames" : 7,
+              "fw" : 109
             },
             "idle" : {
               "fh" : 160,
               "file" : "dog_cabbage\/juvenile_idle.png",
               "fps" : 6,
-              "frames" : 6,
-              "fw" : 118
+              "frames" : 8,
+              "fw" : 135
             },
             "waiting" : {
               "fh" : 160,
               "file" : "dog_cabbage\/juvenile_waiting.png",
-              "fps" : 8,
-              "frames" : 6,
-              "fw" : 106
+              "fps" : 9,
+              "frames" : 8,
+              "fw" : 134
             },
             "working" : {
               "fh" : 160,
               "file" : "dog_cabbage\/juvenile_working.png",
-              "fps" : 10,
-              "frames" : 6,
-              "fw" : 167
+              "fps" : 9,
+              "frames" : 8,
+              "fw" : 143
             }
           },
           "stage" : "juvenile"
@@ -187,30 +187,30 @@
             "complete" : {
               "fh" : 160,
               "file" : "dog_cabbage\/mature_complete.png",
-              "fps" : 12,
-              "frames" : 6,
-              "fw" : 92
+              "fps" : 7,
+              "frames" : 8,
+              "fw" : 124
             },
             "idle" : {
               "fh" : 160,
               "file" : "dog_cabbage\/mature_idle.png",
               "fps" : 6,
-              "frames" : 6,
-              "fw" : 131
+              "frames" : 8,
+              "fw" : 139
             },
             "waiting" : {
               "fh" : 160,
               "file" : "dog_cabbage\/mature_waiting.png",
-              "fps" : 8,
-              "frames" : 6,
-              "fw" : 112
+              "fps" : 9,
+              "frames" : 8,
+              "fw" : 132
             },
             "working" : {
               "fh" : 160,
               "file" : "dog_cabbage\/mature_working.png",
-              "fps" : 10,
-              "frames" : 6,
-              "fw" : 63
+              "fps" : 9,
+              "frames" : 8,
+              "fw" : 153
             }
           },
           "stage" : "mature"
@@ -220,30 +220,30 @@
             "complete" : {
               "fh" : 160,
               "file" : "dog_cabbage\/final_complete.png",
-              "fps" : 12,
-              "frames" : 6,
-              "fw" : 90
+              "fps" : 7,
+              "frames" : 8,
+              "fw" : 132
             },
             "idle" : {
               "fh" : 160,
               "file" : "dog_cabbage\/final_idle.png",
               "fps" : 6,
-              "frames" : 6,
-              "fw" : 95
+              "frames" : 8,
+              "fw" : 143
             },
             "waiting" : {
               "fh" : 160,
               "file" : "dog_cabbage\/final_waiting.png",
-              "fps" : 8,
-              "frames" : 6,
-              "fw" : 102
+              "fps" : 11,
+              "frames" : 10,
+              "fw" : 151
             },
             "working" : {
               "fh" : 160,
               "file" : "dog_cabbage\/final_working.png",
-              "fps" : 10,
-              "frames" : 6,
-              "fw" : 127
+              "fps" : 9,
+              "frames" : 8,
+              "fw" : 187
             }
           },
           "stage" : "final"
@@ -259,16 +259,16 @@
             "complete" : {
               "fh" : 160,
               "file" : "sealion_water\/egg_complete.png",
-              "fps" : 12,
-              "frames" : 6,
-              "fw" : 107
+              "fps" : 7,
+              "frames" : 8,
+              "fw" : 121
             },
             "idle" : {
               "fh" : 160,
               "file" : "sealion_water\/egg_idle.png",
               "fps" : 6,
-              "frames" : 6,
-              "fw" : 108
+              "frames" : 8,
+              "fw" : 125
             }
           },
           "stage" : "egg"
@@ -278,30 +278,30 @@
             "complete" : {
               "fh" : 160,
               "file" : "sealion_water\/juvenile_complete.png",
-              "fps" : 12,
-              "frames" : 6,
-              "fw" : 97
+              "fps" : 6,
+              "frames" : 7,
+              "fw" : 106
             },
             "idle" : {
               "fh" : 160,
               "file" : "sealion_water\/juvenile_idle.png",
               "fps" : 6,
-              "frames" : 6,
-              "fw" : 115
+              "frames" : 8,
+              "fw" : 130
             },
             "waiting" : {
               "fh" : 160,
               "file" : "sealion_water\/juvenile_waiting.png",
-              "fps" : 8,
-              "frames" : 6,
-              "fw" : 109
+              "fps" : 9,
+              "frames" : 8,
+              "fw" : 107
             },
             "working" : {
               "fh" : 160,
               "file" : "sealion_water\/juvenile_working.png",
-              "fps" : 10,
-              "frames" : 6,
-              "fw" : 187
+              "fps" : 9,
+              "frames" : 8,
+              "fw" : 152
             }
           },
           "stage" : "juvenile"
@@ -311,30 +311,30 @@
             "complete" : {
               "fh" : 160,
               "file" : "sealion_water\/mature_complete.png",
-              "fps" : 12,
-              "frames" : 6,
-              "fw" : 96
+              "fps" : 7,
+              "frames" : 8,
+              "fw" : 100
             },
             "idle" : {
               "fh" : 160,
               "file" : "sealion_water\/mature_idle.png",
-              "fps" : 6,
-              "frames" : 6,
-              "fw" : 122
+              "fps" : 5,
+              "frames" : 7,
+              "fw" : 141
             },
             "waiting" : {
               "fh" : 160,
               "file" : "sealion_water\/mature_waiting.png",
-              "fps" : 8,
-              "frames" : 6,
-              "fw" : 106
+              "fps" : 9,
+              "frames" : 8,
+              "fw" : 126
             },
             "working" : {
               "fh" : 160,
               "file" : "sealion_water\/mature_working.png",
-              "fps" : 10,
-              "frames" : 6,
-              "fw" : 204
+              "fps" : 9,
+              "frames" : 8,
+              "fw" : 158
             }
           },
           "stage" : "mature"
@@ -344,30 +344,30 @@
             "complete" : {
               "fh" : 160,
               "file" : "sealion_water\/final_complete.png",
-              "fps" : 12,
-              "frames" : 6,
-              "fw" : 88
+              "fps" : 7,
+              "frames" : 8,
+              "fw" : 92
             },
             "idle" : {
               "fh" : 160,
               "file" : "sealion_water\/final_idle.png",
-              "fps" : 6,
-              "frames" : 6,
-              "fw" : 105
+              "fps" : 5,
+              "frames" : 7,
+              "fw" : 112
             },
             "waiting" : {
               "fh" : 160,
               "file" : "sealion_water\/final_waiting.png",
               "fps" : 8,
-              "frames" : 6,
-              "fw" : 96
+              "frames" : 7,
+              "fw" : 91
             },
             "working" : {
               "fh" : 160,
               "file" : "sealion_water\/final_working.png",
-              "fps" : 10,
-              "frames" : 6,
-              "fw" : 103
+              "fps" : 9,
+              "frames" : 8,
+              "fw" : 125
             }
           },
           "stage" : "final"
