@@ -4,7 +4,7 @@ import AppKit
 final class PetPanel: NSPanel {
     init(content: NSView) {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 160, height: 190),
+            contentRect: NSRect(x: 0, y: 0, width: 160, height: 214),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false

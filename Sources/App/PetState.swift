@@ -9,4 +9,7 @@ final class PetState: ObservableObject {
     @Published var level: Int = 1
     @Published var energy: Double = 0
     @Published var energyToNext: Double = 300
+    @Published var working: Int = 0
+    @Published var waiting: Int = 0
+    @Published var completed: Int = 0
 }

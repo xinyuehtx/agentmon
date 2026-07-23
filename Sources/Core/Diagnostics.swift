@@ -74,7 +74,7 @@ public enum Diagnostics {
         if recentLog.isEmpty {
             line("（无——App 未运行或未产生事件）")
         } else {
-            recentLog.forEach { line($0) }
+            for entry in recentLog { line(entry) }
         }
         line()
 

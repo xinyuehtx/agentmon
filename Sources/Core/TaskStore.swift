@@ -54,6 +54,19 @@ public final class TaskStore {
         sessions[k] = session
     }
 
+    /// 把所有客户端的累计完成数清零（用于「完成任务按天清理」）。保留已注册客户端。
+    public func resetCompleted() {
+        for key in completedByClient.keys { completedByClient[key] = 0 }
+    }
+
+    /// 用持久化的计数回填（重启后恢复当天完成数）。
+    public func seedCompleted(_ counts: [String: Int]) {
+        for (client, n) in counts {
+            register(client)
+            completedByClient[client] = n
+        }
+    }
+
     public func counts(for client: String) -> ClientCounts {
         let prefix = client + "\u{1}"
         var working = 0

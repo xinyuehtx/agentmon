@@ -57,6 +57,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.petState.mood = .evolve
             self?.petState.level = event.newLevel
         }
+        coordinator.restore(
+            completedByClient: loaded?.completedByClient ?? [:],
+            day: loaded?.completedDay, now: Date())
         AgentmonLog.shared.info(
             "app",
             "集成状态=\((try? installer.isInstalled()) == true ? "已启用" : "未启用") "
@@ -122,6 +125,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         petState.energy = snap.energy
         petState.level = snap.level
         petState.energyToNext = coordinator.engine.threshold(forLevel: snap.level)
+        petState.working = snap.totalWorking
+        petState.waiting = snap.totalWaiting
+        petState.completed = snap.totalCompleted
         if petState.mood == .evolve {
             petState.mood = snap.totalWorking > 0 ? .working : .idle  // 进化演出后回落
         } else if snap.totalWorking > 0 {

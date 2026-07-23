@@ -27,6 +27,15 @@ struct CatView: View {
                 )
                 .frame(width: 104)
                 .tint(accentColor)
+                HStack(spacing: 12) {
+                    stat("▶", state.working)
+                    stat("⏸", state.waiting)
+                    stat("✓", state.completed)
+                }
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("pet.stats")
+                .accessibilityValue("\(state.working):\(state.waiting):\(state.completed)")
             }
         }
         .padding(10)
@@ -42,6 +51,10 @@ struct CatView: View {
         state.level >= 2 ? Color(red: 1.0, green: 0.55, blue: 0.1) : Color(white: 0.42)
     }
     private var bgColor: Color { state.level >= 2 ? .orange : .gray }
+
+    private func stat(_ symbol: String, _ value: Int) -> some View {
+        Text("\(symbol)\(value)")
+    }
 
     private var moodText: String {
         switch state.mood {

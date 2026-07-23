@@ -35,6 +35,8 @@ public final class MonitorCoordinator {
     public private(set) var lastEventAt: Date?
     /// 累计摄取的事件数。
     public private(set) var eventsSeen: Int = 0
+    /// 当前完成计数所属的本地日期（跨天清零用）。
+    private var completedDay: String = ""
 
     public init(ingestor: SpoolIngestor, engine: EnergyEngine) {
         self.ingestor = ingestor
@@ -45,8 +47,33 @@ public final class MonitorCoordinator {
         }
     }
 
+    /// 本地日期字符串（YYYY-MM-DD），由入参 `date` + 系统时区决定，保持可测。
+    public static func dayString(_ date: Date) -> String {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone.current
+        let c = cal.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+    }
+
+    /// 启动时回填持久化的完成计数：同一天则恢复，跨天则从 0 开始。
+    public func restore(completedByClient: [String: Int], day: String?, now: Date) {
+        let today = Self.dayString(now)
+        if let day = day, day == today {
+            store.seedCompleted(completedByClient)
+        }
+        completedDay = today
+    }
+
     @discardableResult
     public func pump(now: Date) -> MonitorSnapshot {
+        // 跨天：完成计数清零
+        let today = Self.dayString(now)
+        if today != completedDay {
+            if !completedDay.isEmpty { store.resetCompleted() }
+            completedDay = today
+            AgentmonLog.shared.info("day", "进入新的一天 \(today)，完成计数清零")
+        }
+
         let events = (try? ingestor.drain()) ?? []
 
         var completions = 0
@@ -101,6 +128,7 @@ public final class MonitorCoordinator {
         for c in store.allClients() { completed[c] = store.counts(for: c).completed }
         return PersistentState(
             energy: engine.energy, level: engine.level,
-            completedByClient: completed, lastTick: now)
+            completedByClient: completed, lastTick: now,
+            completedDay: completedDay.isEmpty ? Self.dayString(now) : completedDay)
     }
 }

@@ -44,4 +44,31 @@ final class MonitorCoordinatorTrackingTests: XCTestCase {
         XCTAssertEqual(snap2.eventsSeen, 2)
         XCTAssertEqual(snap2.lastEventAt, snap.lastEventAt)
     }
+
+    func testCompletedResetsAcrossDay() {
+        let day1 = Date(timeIntervalSince1970: 1_700_000_000)
+        let day2 = day1.addingTimeInterval(2 * 86400)
+        let coord = MonitorCoordinator(
+            ingestor: SpoolIngestor(directory: dir),
+            engine: EnergyEngine(lastTick: day1))
+        coord.restore(
+            completedByClient: ["Claude Code": 5],
+            day: MonitorCoordinator.dayString(day1), now: day1)
+
+        XCTAssertEqual(coord.pump(now: day1).totalCompleted, 5)  // 同一天 → 保留
+        XCTAssertEqual(coord.pump(now: day2).totalCompleted, 0)  // 跨天 → 清零
+    }
+
+    func testRestoreIgnoresStaleDay() {
+        let day1 = Date(timeIntervalSince1970: 1_700_000_000)
+        let coord = MonitorCoordinator(
+            ingestor: SpoolIngestor(directory: dir),
+            engine: EnergyEngine(lastTick: day1))
+        // 恢复的是「前一天」的计数 → 不应恢复
+        coord.restore(
+            completedByClient: ["Claude Code": 9],
+            day: MonitorCoordinator.dayString(day1.addingTimeInterval(-86400)), now: day1)
+
+        XCTAssertEqual(coord.pump(now: day1).totalCompleted, 0)
+    }
 }
