@@ -14,7 +14,7 @@ import UniformTypeIdentifiers
 let args = CommandLine.arguments
 let srcDir = URL(fileURLWithPath: args.count > 1 ? args[1] : "/tmp/agentmon-pets-src")
 let frameH = args.count > 2 ? (Int(args[2]) ?? 160) : 160
-let FRAMES = 6
+let FRAMES = args.count > 3 ? (Int(args[3]) ?? 6) : 6  // 每个动作条的帧数（与生图输出一致）
 
 let repoRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 let outDir = repoRoot.appendingPathComponent("assets/pets_raster")
@@ -37,13 +37,16 @@ func elementOf(_ token: String) -> String {
     default: return token
     }
 }
-func fps(_ state: String) -> Int {
+// 按「一轮秒数」推导 fps，使动作节奏与帧数无关（帧越多越平滑，而非越慢）。
+func fps(_ state: String, frames: Int) -> Int {
+    let cycle: Double
     switch state {
-    case "working": return 10
-    case "complete": return 12
-    case "waiting": return 8
-    default: return 6
+    case "working": cycle = 0.9
+    case "complete": cycle = 1.2
+    case "waiting": cycle = 0.9
+    default: cycle = 1.4
     }
+    return max(1, Int((Double(frames) / cycle).rounded()))
 }
 
 struct RGBA { var r: Int; var g: Int; var b: Int }
@@ -200,7 +203,8 @@ for pack in packs.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
             print("skip \(base)"); continue
         }
         let action = ActionOut(
-            file: "\(speciesID)/\(stage)_\(state).png", frames: FRAMES, fw: fw, fh: fh, fps: fps(state))
+            file: "\(speciesID)/\(stage)_\(state).png", frames: FRAMES, fw: fw, fh: fh,
+            fps: fps(state, frames: FRAMES))
         speciesMap[speciesID, default: (element, [:])].element = element
         speciesMap[speciesID, default: (element, [:])].stages[stage, default: [:]][state] = action
         print("ok \(speciesID) \(stage)/\(state)  \(fw)x\(fh)")
