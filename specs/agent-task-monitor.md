@@ -257,6 +257,19 @@ public final class ClaudeHookInstaller {
 - **不存在文件**：视为无 hooks，创建最小合法结构后注入。
 - **JSON 损坏**：抛错，不写入（避免破坏用户配置）。
 
+### 5.5 多客户端集成（注册表 + 可插拔安装器，新增）
+契约见 [`rfcs/multi-client-and-control-panel.md`](../rfcs/multi-client-and-control-panel.md)。
+
+- **`IntegrationInstaller` 协议**：`install()/uninstall()/isInstalled() throws`。三种实现按机制分：
+  - `ClaudeHookInstaller`（`.claudeHooks`）：JSON `settings.json` hooks。Claude Code / Qoder / qoderwork·QwenWork。
+  - `CodexHookInstaller`（`.codexHooks`）：`~/.codex/config.toml` 末尾追加 `# >>> agentmon >>>` / `# <<< agentmon <<<` 包裹的 `[[hooks.<Event>]]` 标记块（不引 TOML 解析依赖、备份、幂等、精确回滚）。Codex command hook 从 stdin 收 `hook_event_name`+`session_id`，与 Claude 同构。
+  - `OpencodePluginInstaller`（`.opencodePlugin`）：写 `~/.config/opencode/plugins/agentmon.js`（首行标记 + 内嵌上报器路径），插件订阅 `event` 钩子调 `agentmon-hook opencode <kind> <sid>`。
+- **`IntegrationRegistry`**：`descriptors(customPaths:) -> [ClientIntegration]`（5 个：claude/qoder/qoderwork/codex/opencode，路径 env 可覆盖、UI 可编辑）+ 工厂 `installer(for:reporterCommand:)`。
+- **`HookInvocation.resolve(arguments:stdin:)`**：上报器参数契约 `agentmon-hook <client> [<kind> [<sid>]]`——额外参数 <2 走 stdin（Claude 家族/Codex），≥2 走归一化 kind 直传（opencode，避免读 stdin 阻塞）。
+- **`ClaudeEventMapper`**：新增 `PermissionRequest→.pause`（Codex）与归一化 `start/pause/end`（opencode）。
+- **`AppSettings`/`AppSettingsStore`**（`app-settings.json`）：持久化自定义路径 + 桌宠 UI 偏好；「是否启用」不持久化，以 `isInstalled()` 为准。
+- **控制台只读数据**：`TaskStore.sessionRows()`（看板）、`MonitorCoordinator.recentActivity(limit:)`（活动流，有界环形缓冲）。
+
 ---
 
 ## 6. 持久化（StateStore）
@@ -299,10 +312,14 @@ public final class StateStore {
 
 ## 8. 展示层
 
-### 8.1 MenuBarView（MenuBarExtra）
-- 标题：猫头像 + `▶{totalWorking} ⏸{totalWaiting} ✓{totalCompleted}`。
-- 菜单：按 `allClients()` 分组显示各 `ClientCounts`；能量条 + `Lv{level}`；开关「显示宠物」「启用/停用 Claude 集成」「设置…」「退出」。
-- 数据只读自 Core，不反向写。
+### 8.1 菜单栏（精简）+ 控制台窗口
+- **菜单栏标题**：猫头像 + `▶{totalWorking} ⏸{totalWaiting} ✓{totalCompleted}`（只显示总运行状态数）。
+- **下拉菜单**：仅「打开控制台…」+「退出 agentmon」；各客户端计数/集成开关/宠物/诊断/日志全部移入控制台。
+- **控制台窗口（`ControlPanelWindowController` + SwiftUI `ControlPanelView`）**：LSUIElement 应用打开时临时切 `.regular` 取焦点、关闭复位 `.accessory`。侧栏三段：
+  - **仪表盘**：三态总数卡 + 各客户端计数 + 会话看板（工作中/等待中/空闲）+ 活动流 + 能量/等级/宠物状态；每次 pump 实时刷新（`AppModel: ObservableObject`）。
+  - **监控设置**：5 个集成开关 + 可编辑路径 + 状态/提示（未验证徽标、qoderwork·QwenWork 同源、Codex `/hooks` 信任）+ 运行诊断/打开日志 + 能量参数编辑。
+  - **桌宠设置**：显示/隐藏、孵化新宠物、收藏皮肤衣柜。
+- 数据只读自 Core（经 `AppModel`），动作经闭包回传 AppDelegate，不反向写 Core。
 
 ### 8.2 PetPanel（NSPanel）
 - `styleMask=[.borderless, .nonactivatingPanel]`，`level=.floating`，`isOpaque=false`，`backgroundColor=.clear`，`collectionBehavior=[.canJoinAllSpaces, .stationary]`，可拖拽。

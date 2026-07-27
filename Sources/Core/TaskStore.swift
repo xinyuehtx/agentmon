@@ -83,7 +83,41 @@ public final class TaskStore {
 
     public func allClients() -> [String] { clientOrder }
 
+    /// 每个会话一行（供控制台看板）。按最近活动降序。
+    public func sessionRows() -> [SessionRow] {
+        sessions.map { (k, s) -> SessionRow in
+            let parts = k.components(separatedBy: "\u{1}")
+            let state: String
+            switch s.state {
+            case .working: state = "working"
+            case .waiting: state = "waiting"
+            case .idle: state = "idle"
+            }
+            return SessionRow(
+                client: parts.first ?? "",
+                sessionID: parts.count > 1 ? parts[1] : "",
+                state: state,
+                lastActivity: s.lastTS)
+        }
+        .sorted { $0.lastActivity > $1.lastActivity }
+    }
+
     public var totalWorking: Int { sessions.values.lazy.filter { $0.state == .working }.count }
     public var totalWaiting: Int { sessions.values.lazy.filter { $0.state == .waiting }.count }
     public var totalCompleted: Int { completedByClient.values.reduce(0, +) }
+}
+
+/// 一个会话的看板行。契约见 rfcs/multi-client-and-control-panel.md §4.4。
+public struct SessionRow: Equatable {
+    public let client: String
+    public let sessionID: String
+    public let state: String  // "working"/"waiting"/"idle"
+    public let lastActivity: Date
+
+    public init(client: String, sessionID: String, state: String, lastActivity: Date) {
+        self.client = client
+        self.sessionID = sessionID
+        self.state = state
+        self.lastActivity = lastActivity
+    }
 }

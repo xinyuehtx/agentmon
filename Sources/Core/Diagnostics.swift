@@ -1,8 +1,18 @@
 import Foundation
 
 /// 生成人类可读的诊断报告，帮助用户自查「Agent 监控为何不工作」。
-/// 纯逻辑（依赖注入路径与 installer），可单测；由 `--doctor` CLI 与菜单「运行诊断」复用。
+/// 纯逻辑（依赖注入路径与安装器），可单测；由 `--doctor` CLI 与控制台「运行诊断」复用。
 public enum Diagnostics {
+
+    /// 一个客户端的诊断输入：描述符 + 其安装器。
+    public struct IntegrationStatus {
+        public let descriptor: ClientIntegration
+        public let installer: IntegrationInstaller
+        public init(descriptor: ClientIntegration, installer: IntegrationInstaller) {
+            self.descriptor = descriptor
+            self.installer = installer
+        }
+    }
 
     private static func loadState(_ url: URL) -> PersistentState? {
         guard let data = try? Data(contentsOf: url) else { return nil }
@@ -13,15 +23,12 @@ public enum Diagnostics {
 
     public static func report(
         appVersion: String,
-        claudeSettings: URL,
         reporterCommand: String,
-        installer: ClaudeHookInstaller,
+        integrations: [IntegrationStatus],
         spool: URL,
         stateFile: URL,
         now: Date,
-        recentLog: [String],
-        qoderSettings: URL? = nil,
-        qoderInstaller: ClaudeHookInstaller? = nil
+        recentLog: [String]
     ) -> String {
         let fm = FileManager.default
         var out: [String] = []
@@ -31,24 +38,24 @@ public enum Diagnostics {
         line("时间：\(ISO8601DateFormatter().string(from: now))")
         line(String(repeating: "─", count: 44))
 
-        line("【Claude 集成】")
-        line("settings 路径：\(claudeSettings.path)")
-        line("settings 存在：\(fm.fileExists(atPath: claudeSettings.path) ? "是" : "否")")
-        let installed = (try? installer.isInstalled()) ?? false
-        line("agentmon hooks：\(installed ? "已启用 ✓" : "未启用 ✗")")
-        line("上报器路径：\(reporterCommand)")
+        line("【上报器】")
+        line("路径：\(reporterCommand)")
         let hookExists = fm.fileExists(atPath: reporterCommand)
-        line("上报器存在：\(hookExists ? "是" : "否")")
-        line("上报器可执行：\(hookExists && fm.isExecutableFile(atPath: reporterCommand) ? "是" : "否")")
-        line("提示：启用集成后需在 Claude Code【新开会话】，hooks 才会加载。")
+        line("存在：\(hookExists ? "是" : "否")")
+        line("可执行：\(hookExists && fm.isExecutableFile(atPath: reporterCommand) ? "是" : "否")")
         line()
 
-        if let qoderSettings = qoderSettings, let qoderInstaller = qoderInstaller {
-            line("【Qoder 集成】")
-            line("settings 路径：\(qoderSettings.path)")
-            line("settings 存在：\(fm.fileExists(atPath: qoderSettings.path) ? "是" : "否")")
-            line("agentmon hooks：\((try? qoderInstaller.isInstalled()) == true ? "已启用 ✓" : "未启用 ✗")")
-            line("提示：启用后需在 Qoder 中【新开会话】。")
+        var anyInstalled = false
+        for status in integrations {
+            let d = status.descriptor
+            let installed = (try? status.installer.isInstalled()) ?? false
+            anyInstalled = anyInstalled || installed
+            line("【\(d.displayName) 集成】")
+            line("配置路径：\(d.defaultPath.path)")
+            line("配置存在：\(fm.fileExists(atPath: d.defaultPath.path) ? "是" : "否")")
+            line("agentmon 接入：\(installed ? "已启用 ✓" : "未启用 ✗")")
+            if let note = d.note { line("说明：\(note)") }
+            if !d.verified { line("注意：该客户端路径为最佳猜测，未经验证。") }
             line()
         }
 
@@ -90,10 +97,10 @@ public enum Diagnostics {
         line()
 
         line("【建议】")
-        if !installed {
-            line("• 未启用集成：点击菜单「启用 Claude 集成」。")
+        if !anyInstalled {
+            line("• 尚未启用任何集成：在控制台「监控设置」里为某个客户端打开开关。")
         } else {
-            line("• 已启用集成。若计数不动：在 Claude Code【新开会话】后再跑任务。")
+            line("• 已启用集成。若计数不动：在对应客户端【新开会话】后再跑任务。")
         }
         line("• 完整日志：\(AgentmonPaths.logFile.path)")
 

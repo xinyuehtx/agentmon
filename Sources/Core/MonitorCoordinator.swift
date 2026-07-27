@@ -32,6 +32,21 @@ public struct MonitorSnapshot: Equatable {
     public let graduated: [String]
 }
 
+/// 一条最近活动（用于控制台活动流）。契约见 rfcs/multi-client-and-control-panel.md §4.4。
+public struct ActivityItem: Equatable {
+    public let client: String
+    public let sessionID: String
+    public let kind: TaskEventKind
+    public let at: Date
+
+    public init(client: String, sessionID: String, kind: TaskEventKind, at: Date) {
+        self.client = client
+        self.sessionID = sessionID
+        self.kind = kind
+        self.at = at
+    }
+}
+
 /// 编排：摄取 spool → 更新 TaskStore → 结算 EnergyEngine → 输出快照。
 /// 时间由外部（App 的 Timer）通过 `pump(now:)` 驱动，保持 Core 可测。
 public final class MonitorCoordinator {
@@ -68,6 +83,10 @@ public final class MonitorCoordinator {
     public var onDeath: ((String) -> Void)?
 
     private var pendingStarve = false
+
+    /// 最近活动环形缓冲（最新在尾部），供控制台活动流。
+    private var activityRing: [ActivityItem] = []
+    private let activityCap = 200
 
     public init(ingestor: SpoolIngestor, engine: EnergyEngine) {
         self.ingestor = ingestor
@@ -169,6 +188,10 @@ public final class MonitorCoordinator {
             completions += delta
 
             AgentmonLog.shared.info("event", "\(event.client)/\(event.sessionID) \(event.kind.rawValue)")
+            activityRing.append(
+                ActivityItem(
+                    client: event.client, sessionID: event.sessionID, kind: event.kind,
+                    at: event.timestamp))
             if event.kind == .end && delta == 0 {
                 AgentmonLog.shared.warn(
                     "event",
@@ -179,6 +202,9 @@ public final class MonitorCoordinator {
         if !events.isEmpty {
             eventsSeen += events.count
             lastEventAt = events.map(\.timestamp).max()
+            if activityRing.count > activityCap {
+                activityRing.removeFirst(activityRing.count - activityCap)
+            }
             AgentmonLog.shared.info(
                 "pump",
                 "ingested=\(events.count) completions=\(completions) "
@@ -204,6 +230,11 @@ public final class MonitorCoordinator {
             onDeath?(old ?? "")
         }
         return snapshot()
+    }
+
+    /// 最近活动（最新在前），最多 `limit` 条。供控制台活动流。
+    public func recentActivity(limit: Int) -> [ActivityItem] {
+        Array(activityRing.suffix(max(0, limit)).reversed())
     }
 
     public func snapshot() -> MonitorSnapshot {

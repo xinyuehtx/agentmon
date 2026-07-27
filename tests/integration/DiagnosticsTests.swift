@@ -2,7 +2,7 @@ import XCTest
 
 @testable import agentmonCore
 
-/// 诊断报告内容测试（注入临时路径与 installer）。
+/// 诊断报告内容测试（注入临时路径与安装器，走注册表化的新签名）。
 final class DiagnosticsTests: XCTestCase {
 
     private var dir: URL!
@@ -16,16 +16,23 @@ final class DiagnosticsTests: XCTestCase {
         try? FileManager.default.removeItem(at: dir)
     }
 
+    private func claudeStatus(settings: URL, reporter: String) -> Diagnostics.IntegrationStatus {
+        let d = ClientIntegration(
+            id: "claude", displayName: "Claude Code", clientLabel: "Claude Code",
+            symbol: "sparkles", mechanism: .claudeHooks, defaultPath: settings,
+            events: ["UserPromptSubmit", "Notification", "Stop"])
+        return Diagnostics.IntegrationStatus(
+            descriptor: d, installer: ClaudeHookInstaller(settingsURL: settings, reporterCommand: reporter))
+    }
+
     func testReportWhenNotInstalledAndNoState() {
         let settings = dir.appendingPathComponent("settings.json")  // 不创建
         let reporter = dir.appendingPathComponent("agentmon-hook").path
-        let installer = ClaudeHookInstaller(settingsURL: settings, reporterCommand: reporter)
 
         let report = Diagnostics.report(
             appVersion: "9.9",
-            claudeSettings: settings,
             reporterCommand: reporter,
-            installer: installer,
+            integrations: [claudeStatus(settings: settings, reporter: reporter)],
             spool: dir.appendingPathComponent("spool"),
             stateFile: dir.appendingPathComponent("state.json"),
             now: Date(timeIntervalSince1970: 1_700_000_000),
@@ -34,7 +41,7 @@ final class DiagnosticsTests: XCTestCase {
         XCTAssertTrue(report.contains("v9.9"))
         XCTAssertTrue(report.contains("未启用 ✗"))
         XCTAssertTrue(report.contains("state.json 未生成"))
-        XCTAssertTrue(report.contains("启用 Claude 集成"))
+        XCTAssertTrue(report.contains("尚未启用任何集成"))
     }
 
     func testReportWhenInstalledWithState() throws {
@@ -44,8 +51,8 @@ final class DiagnosticsTests: XCTestCase {
             atPath: reporter, contents: Data("#!/bin/sh\n".utf8),
             attributes: [.posixPermissions: 0o755])
 
-        let installer = ClaudeHookInstaller(settingsURL: settings, reporterCommand: reporter)
-        try installer.install()
+        let status = claudeStatus(settings: settings, reporter: reporter)
+        try status.installer.install()
 
         let store = StateStore(
             stateURL: dir.appendingPathComponent("state.json"),
@@ -57,16 +64,15 @@ final class DiagnosticsTests: XCTestCase {
 
         let report = Diagnostics.report(
             appVersion: "1.0",
-            claudeSettings: settings,
             reporterCommand: reporter,
-            installer: installer,
+            integrations: [status],
             spool: dir.appendingPathComponent("spool"),
             stateFile: dir.appendingPathComponent("state.json"),
             now: Date(timeIntervalSince1970: 1_700_000_005),
             recentLog: ["line-a", "line-b"])
 
         XCTAssertTrue(report.contains("已启用 ✓"))
-        XCTAssertTrue(report.contains("上报器可执行：是"))
+        XCTAssertTrue(report.contains("可执行：是"))
         XCTAssertTrue(report.contains("Lv2"))
         XCTAssertTrue(report.contains("Claude Code：累计完成 4"))
         XCTAssertTrue(report.contains("line-b"))

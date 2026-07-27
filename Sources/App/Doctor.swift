@@ -5,24 +5,20 @@ import agentmonCore
 enum Doctor {
     static func run() -> Never {
         AgentmonLog.shared.configure(fileURL: AgentmonPaths.logFile)
-        let installer = ClaudeHookInstaller(
-            settingsURL: AgentmonPaths.claudeSettings,
-            reporterCommand: AppInfo.reporterCommand())
-        let qoderInstaller = ClaudeHookInstaller(
-            settingsURL: AgentmonPaths.qoderSettings,
-            reporterCommand: "\(AppInfo.reporterCommand()) Qoder",
-            events: ["UserPromptSubmit", "Notification", "Stop", "SubagentStart"])
+        let reporter = AppInfo.reporterCommand()
+        let integrations = IntegrationRegistry.descriptors().map {
+            Diagnostics.IntegrationStatus(
+                descriptor: $0,
+                installer: IntegrationRegistry.installer(for: $0, reporterCommand: reporter))
+        }
         let report = Diagnostics.report(
             appVersion: AppInfo.version,
-            claudeSettings: AgentmonPaths.claudeSettings,
-            reporterCommand: AppInfo.reporterCommand(),
-            installer: installer,
+            reporterCommand: reporter,
+            integrations: integrations,
             spool: AgentmonPaths.spool,
             stateFile: AgentmonPaths.stateFile,
             now: Date(),
-            recentLog: AgentmonLog.shared.recentLines(20),
-            qoderSettings: AgentmonPaths.qoderSettings,
-            qoderInstaller: qoderInstaller)
+            recentLog: AgentmonLog.shared.recentLines(20))
         print(report)
         exit(0)
     }

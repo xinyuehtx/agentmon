@@ -20,6 +20,15 @@ final class ClaudeEventMapperTests: XCTestCase {
         XCTAssertNil(map("PreToolUse"))
     }
 
+    func testCodexAndNormalizedMappings() {
+        // Codex 的权限请求 → 等待
+        XCTAssertEqual(map("PermissionRequest")?.kind, .pause)
+        // opencode 插件传入的归一化名
+        XCTAssertEqual(map("start")?.kind, .start)
+        XCTAssertEqual(map("pause")?.kind, .pause)
+        XCTAssertEqual(map("end")?.kind, .end)
+    }
+
     func testClientPassedThrough() {
         XCTAssertEqual(map("Stop")?.client, "Qoder")
     }

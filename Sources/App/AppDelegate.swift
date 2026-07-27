@@ -2,7 +2,8 @@ import AppKit
 import SwiftUI
 import agentmonCore
 
-/// 组合 Core + 菜单栏 + 宠物浮窗 + 定时 pump。契约见 specs/agent-task-monitor.md §7、§8。
+/// 组合 Core + 菜单栏 + 宠物浮窗 + 控制台窗口 + 定时 pump。
+/// 契约见 specs/agent-task-monitor.md §7、§8、rfcs/multi-client-and-control-panel.md。
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var statusItem: NSStatusItem!
@@ -19,21 +20,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let stateStore = StateStore(
         stateURL: AgentmonPaths.stateFile,
         configURL: AgentmonPaths.configFile)
-    private lazy var installer = ClaudeHookInstaller(
-        settingsURL: AgentmonPaths.claudeSettings,
-        reporterCommand: AppInfo.reporterCommand()
-    )
-    // Qoder 与 Claude Code 共用同一 hooks 机制；上报器带 "Qoder" 参数以区分客户端。
-    private lazy var qoderInstaller = ClaudeHookInstaller(
-        settingsURL: AgentmonPaths.qoderSettings,
-        reporterCommand: "\(AppInfo.reporterCommand()) Qoder",
-        events: ["UserPromptSubmit", "Notification", "Stop", "SubagentStart"]
-    )
+    private let appSettingsStore = AppSettingsStore(url: AgentmonPaths.appSettingsFile)
+    private var appSettings = AppSettings.default
+
+    // 集成：由数据驱动注册表构建，按自定义路径重建。
+    private var descriptors: [ClientIntegration] = []
+    private var installers: [String: IntegrationInstaller] = [:]
+    private var integrationErrors: [String: String] = [:]
+
+    // 控制台
+    let appModel = AppModel()
+    private var panelController: ControlPanelWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AgentmonLog.shared.configure(fileURL: AgentmonPaths.logFile)
         AgentmonLog.shared.info("app", "启动 agentmon v\(AppInfo.version)")
+        appSettings = appSettingsStore.load()
+        rebuildInstallers()
         setupCoordinator()
+        wireModel()
         setupStatusItem()
         setupPetPanel()
         startTimer()
@@ -47,6 +52,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     // MARK: - Setup
+
+    /// 依据当前自定义路径重建描述符与安装器字典。
+    private func rebuildInstallers() {
+        let reporter = AppInfo.reporterCommand()
+        descriptors = IntegrationRegistry.descriptors(customPaths: appSettings.customPaths)
+        installers = Dictionary(
+            uniqueKeysWithValues: descriptors.map {
+                ($0.id, IntegrationRegistry.installer(for: $0, reporterCommand: reporter))
+            })
+    }
 
     private func setupCoordinator() {
         try? FileManager.default.createDirectory(at: AgentmonPaths.spool, withIntermediateDirectories: true)
@@ -93,10 +108,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         lastCompleted = (loaded?.completedByClient.values.reduce(0, +)) ?? 0
         AgentmonLog.shared.info(
             "pet", "物种=\(resolvedSpecies) 收藏=\(restoredGraduated) 展示=\(loaded?.displaySkin ?? "活跃")")
-        AgentmonLog.shared.info(
-            "app",
-            "集成状态=\((try? installer.isInstalled()) == true ? "已启用" : "未启用") "
-                + "spool=\(AgentmonPaths.spool.path)")
+        AgentmonLog.shared.info("app", "spool=\(AgentmonPaths.spool.path) 集成数=\(descriptors.count)")
+    }
+
+    private func wireModel() {
+        appModel.onToggleIntegration = { [weak self] id, on in self?.toggleIntegration(id: id, enable: on) }
+        appModel.onSetPath = { [weak self] id, path in self?.setCustomPath(id: id, path: path) }
+        appModel.onResetPath = { [weak self] id in self?.resetCustomPath(id: id) }
+        appModel.onSaveConfig = { [weak self] c in self?.saveConfig(c) }
+        appModel.onTogglePet = { [weak self] on in self?.setPetVisible(on) }
+        appModel.onHatch = { [weak self] in self?.hatchNew() }
+        appModel.onShowActive = { [weak self] in self?.showActive() }
+        appModel.onShowSkin = { [weak self] sp, st in self?.selectSkin(species: sp, stage: st) }
+        appModel.onRunDiagnostics = { [weak self] in self?.runDiagnostics() }
+        appModel.onOpenLog = { [weak self] in self?.openLog() }
+        panelController = ControlPanelWindowController(
+            model: appModel, onOpen: { [weak self] in self?.refreshModelSettings() })
     }
 
     private func setupStatusItem() {
@@ -135,6 +162,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             rootView: RasterPetView(state: petState, store: store, onHide: { [weak self] in self?.hidePet() }))
         let panel = PetPanel(content: host)
         panel.orderFrontRegardless()
+        if !appSettings.petVisible { panel.orderOut(nil) }
         petPanel = panel
     }
 
@@ -184,6 +212,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         lastCompleted = snap.totalCompleted
         refreshVariant()
+        feedDashboard(snap)
+    }
+
+    /// 把快照 + 看板/活动流灌入控制台数据源。
+    private func feedDashboard(_ snap: MonitorSnapshot) {
+        appModel.working = snap.totalWorking
+        appModel.waiting = snap.totalWaiting
+        appModel.completed = snap.totalCompleted
+        appModel.activeClients = snap.clients.filter { $0.counts.working + $0.counts.waiting > 0 }.count
+        appModel.energy = snap.energy
+        appModel.level = snap.level
+        appModel.energyToNext = coordinator.engine.threshold(forLevel: snap.level)
+        appModel.isGraduated = snap.isGraduated
+        appModel.clients = snap.clients
+        appModel.sessions = coordinator.store.sessionRows()
+        appModel.activity = coordinator.recentActivity(limit: 50)
+        appModel.lastEventAt = snap.lastEventAt
+        appModel.eventsSeen = snap.eventsSeen
+        appModel.displaySpecies = snap.displaySpecies
+        appModel.displayStage = snap.displayStage
+        appModel.isSkinMode = snap.isSkinMode
+        appModel.graduated = snap.graduated
     }
 
     /// mood → 状态键（idle/working/waiting/complete）。
@@ -197,7 +247,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// 进入新状态/阶段时，随机挑一个动作变体并重置播放起点。
-    /// 状态/阶段变化时重置动画播放起点（用于循环与一次性 complete 计时）。
     private func refreshVariant() {
         let key = stateKey(for: petState.mood)
         guard key != lastStateKey || petState.stage != lastStage else { return }
@@ -206,57 +255,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         petState.variantStart = Date()
     }
 
-    // MARK: - Menu
+    // MARK: - Menu（精简：仅总数标题 + 打开控制台 + 退出）
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        let snap = lastSnapshot ?? coordinator.snapshot()
-        let next = Int(coordinator.engine.threshold(forLevel: snap.level))
-
-        func disabled(_ title: String) {
-            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-            item.isEnabled = false
-            menu.addItem(item)
-        }
-
-        disabled("● 监控中")
-        disabled("最近事件：\(lastEventText(snap))")
-        if snap.isSkinMode {
-            disabled("展示收藏：\(Self.speciesName(snap.displaySpecies))（\(Self.stageName(snap.displayStage))）· 成长已暂停")
-        } else if snap.isGraduated {
-            disabled("Lv\(snap.level)   已毕业 ✓ 可孵化新宠物")
-        } else {
-            disabled("Lv\(snap.level)   能量 \(Int(snap.energy))/\(next)")
-        }
-        menu.addItem(.separator())
-
-        let installed = (try? installer.isInstalled()) ?? false
-        let qoderInstalled = (try? qoderInstaller.isInstalled()) ?? false
-        disabled("Claude 集成：\(installed ? "已启用 ✓" : "未启用 ✗")")
-        disabled("Qoder 集成：\(qoderInstalled ? "已启用 ✓" : "未启用 ✗")")
-        if snap.clients.isEmpty {
-            disabled("尚未收到事件 —— 启用集成并在客户端新开会话")
-        } else {
-            for c in snap.clients {
-                disabled("\(c.client)   ▶\(c.counts.working) ⏸\(c.counts.waiting) ✓\(c.counts.completed)")
-            }
-        }
-        menu.addItem(.separator())
-
-        addAction(
-            to: menu, title: (petPanel?.isVisible ?? false) ? "隐藏宠物" : "显示宠物",
-            action: #selector(togglePet))
-        addPetLifecycleMenu(to: menu, snap: snap)
-        menu.addItem(.separator())
-        addAction(
-            to: menu, title: installed ? "停用 Claude 集成" : "启用 Claude 集成",
-            action: #selector(toggleClaude))
-        addAction(
-            to: menu, title: qoderInstalled ? "停用 Qoder 集成" : "启用 Qoder 集成",
-            action: #selector(toggleQoder))
-        addAction(to: menu, title: "运行诊断…", action: #selector(runDiagnostics))
-        addAction(to: menu, title: "打开日志文件", action: #selector(openLog))
-
+        addAction(to: menu, title: "打开控制台…", action: #selector(openControlPanel))
         menu.addItem(.separator())
         addAction(to: menu, title: "退出 agentmon", action: #selector(quit), key: "q")
     }
@@ -267,77 +270,106 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item)
     }
 
-    /// 宠物形态：孵化新宠物 + 收藏皮肤切换（各形态）+ 显示当前宠物。
-    private func addPetLifecycleMenu(to menu: NSMenu, snap: MonitorSnapshot) {
-        addAction(to: menu, title: "孵化新宠物…", action: #selector(hatchNew))
+    // MARK: - 控制台
 
-        guard !snap.graduated.isEmpty else { return }
-        let wardrobe = NSMenu()
+    @objc private func openControlPanel() {
+        panelController?.show()
+    }
 
-        // 显示当前活跃宠物
-        let activeItem = NSMenuItem(
-            title: "显示当前宠物", action: #selector(showActive), keyEquivalent: "")
-        activeItem.target = self
-        activeItem.state = snap.isSkinMode ? .off : .on
-        wardrobe.addItem(activeItem)
-        wardrobe.addItem(.separator())
+    /// 面板打开时刷新设置态（集成状态、能量参数、宠物态、仪表盘）。
+    private func refreshModelSettings() {
+        appModel.energyConfig = coordinator.engine.config
+        appModel.petVisible = petPanel?.isVisible ?? appSettings.petVisible
+        refreshIntegrationRows()
+        if let snap = lastSnapshot { feedDashboard(snap) }
+    }
 
-        // 每个已毕业物种 → 形态子菜单
-        for species in snap.graduated {
-            let speciesItem = NSMenuItem(title: Self.speciesName(species), action: nil, keyEquivalent: "")
-            let stagesMenu = NSMenu()
-            for stage in PetSelection.stageOrder {
-                let item = NSMenuItem(
-                    title: Self.stageName(stage), action: #selector(selectSkin(_:)), keyEquivalent: "")
-                item.target = self
-                item.representedObject = ["species": species, "stage": stage]
-                item.state =
-                    (snap.isSkinMode && snap.displaySpecies == species && snap.displayStage == stage)
-                    ? .on : .off
-                stagesMenu.addItem(item)
-            }
-            speciesItem.submenu = stagesMenu
-            wardrobe.addItem(speciesItem)
+    private func refreshIntegrationRows() {
+        appModel.integrations = descriptors.map { d in
+            var installed = false
+            if let inst = installers[d.id] { installed = (try? inst.isInstalled()) ?? false }
+            return IntegrationRow(
+                id: d.id, name: d.displayName, symbol: d.symbol, mechanism: d.mechanism,
+                path: d.defaultPath.path, installed: installed,
+                error: integrationErrors[d.id], verified: d.verified, note: d.note)
         }
-
-        let root = NSMenuItem(title: "收藏皮肤（\(snap.graduated.count)）", action: nil, keyEquivalent: "")
-        root.submenu = wardrobe
-        menu.addItem(root)
-    }
-
-    /// 物种 id → 展示名（无映射则原样）。
-    static func speciesName(_ id: String) -> String {
-        [
-            "bird_fire": "火焰鸟", "dog_cabbage": "白菜狗", "sealion_water": "水海狮",
-        ][id] ?? id
-    }
-
-    /// 形态 id → 中文名。
-    static func stageName(_ stage: String) -> String {
-        [
-            "egg": "幼年·蛋", "juvenile": "幼年体", "mature": "成熟体", "final": "成年体",
-        ][stage] ?? stage
-    }
-
-    private func lastEventText(_ snap: MonitorSnapshot) -> String {
-        guard let at = snap.lastEventAt else { return "暂无（尚未收到事件）" }
-        let age = Int(Date().timeIntervalSince(at))
-        if age < 0 { return "刚刚" }
-        if age < 60 { return "\(age) 秒前" }
-        if age < 3600 { return "\(age / 60) 分钟前" }
-        return "\(age / 3600) 小时前"
     }
 
     // MARK: - Actions
 
-    private func hidePet() { petPanel?.orderOut(nil) }
-
-    @objc private func togglePet() {
-        guard let panel = petPanel else { return }
-        if panel.isVisible { panel.orderOut(nil) } else { panel.orderFrontRegardless() }
+    private func toggleIntegration(id: String, enable: Bool) {
+        guard let installer = installers[id], let d = descriptors.first(where: { $0.id == id }) else { return }
+        integrationErrors[id] = nil
+        do {
+            if enable {
+                try installer.install()
+                notifyIntegrationEnabled(d)
+            } else {
+                try installer.uninstall()
+            }
+        } catch {
+            integrationErrors[id] = "\(error)"
+            AgentmonLog.shared.error("hook", "\(d.displayName) 集成操作失败：\(error)")
+            let alert = NSAlert()
+            alert.messageText = "\(d.displayName) 集成操作失败"
+            alert.informativeText = "\(error)"
+            alert.runModal()
+        }
+        refreshIntegrationRows()
     }
 
-    @objc private func hatchNew() {
+    private func notifyIntegrationEnabled(_ d: ClientIntegration) {
+        let alert = NSAlert()
+        alert.messageText = "\(d.displayName) 集成已启用"
+        var info = "请在 \(d.displayName) 中新开一个会话，hooks 才会生效。之后跑任务即可在控制台看到计数。"
+        if let note = d.note { info += "\n\n\(note)" }
+        alert.informativeText = info
+        alert.runModal()
+    }
+
+    private func setCustomPath(id: String, path: String) {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        appSettings.customPaths[id] = trimmed.isEmpty ? nil : trimmed
+        saveAppSettings()
+        rebuildInstallers()
+        refreshIntegrationRows()
+    }
+
+    private func resetCustomPath(id: String) {
+        appSettings.customPaths[id] = nil
+        saveAppSettings()
+        rebuildInstallers()
+        refreshIntegrationRows()
+    }
+
+    private func saveConfig(_ config: EnergyConfig) {
+        try? stateStore.saveConfig(config)
+        appModel.energyConfig = config
+        let alert = NSAlert()
+        alert.messageText = "能量参数已保存"
+        alert.informativeText = "新参数将在下次启动 agentmon 后生效。"
+        alert.runModal()
+    }
+
+    private func setPetVisible(_ on: Bool) {
+        if on { petPanel?.orderFrontRegardless() } else { petPanel?.orderOut(nil) }
+        appSettings.petVisible = on
+        appModel.petVisible = on
+        saveAppSettings()
+    }
+
+    private func saveAppSettings() {
+        try? appSettingsStore.save(appSettings)
+    }
+
+    private func hidePet() {
+        petPanel?.orderOut(nil)
+        appSettings.petVisible = false
+        appModel.petVisible = false
+        saveAppSettings()
+    }
+
+    private func hatchNew() {
         // 未毕业时孵化 = 放弃当前宠物，需确认。
         if let snap = lastSnapshot, !snap.isGraduated, !snap.isSkinMode {
             let alert = NSAlert()
@@ -351,15 +383,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         pump()
     }
 
-    @objc private func showActive() {
+    private func showActive() {
         coordinator.showActivePet()
         pump()
     }
 
-    @objc private func selectSkin(_ sender: NSMenuItem) {
-        guard let info = sender.representedObject as? [String: String],
-            let species = info["species"], let stage = info["stage"]
-        else { return }
+    private func selectSkin(species: String, stage: String) {
         coordinator.showSkin(species, stage: stage)
         pump()
     }
@@ -367,57 +396,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func notifyGraduated(_ species: String) {
         petState.mood = .celebrate
         let alert = NSAlert()
-        alert.messageText = "🎓 \(Self.speciesName(species)) 毕业啦！"
-        alert.informativeText = "它已解锁为永久皮肤，可在菜单「收藏皮肤」里随时切换展示与形态。你可以选择「孵化新宠物」开启下一只。"
+        alert.messageText = "🎓 \(PetNaming.species(species)) 毕业啦！"
+        alert.informativeText = "它已解锁为永久皮肤，可在控制台「桌宠设置 · 收藏皮肤」里随时切换展示与形态。你可以选择「孵化新宠物」开启下一只。"
         alert.runModal()
     }
 
     private func notifyDeath(_ old: String) {
         petState.mood = .idle
-        AgentmonLog.shared.warn("pet", "\(Self.speciesName(old)) 因长期空闲饿死，新蛋孵化中")
-    }
-
-    @objc private func toggleClaude() { toggleIntegration(installer, name: "Claude Code") }
-    @objc private func toggleQoder() { toggleIntegration(qoderInstaller, name: "Qoder") }
-
-    private func toggleIntegration(_ installer: ClaudeHookInstaller, name: String) {
-        do {
-            if (try? installer.isInstalled()) == true {
-                try installer.uninstall()
-            } else {
-                try installer.install()
-                notifyIntegrationEnabled(name)
-            }
-        } catch {
-            AgentmonLog.shared.error("hook", "\(name) 集成操作失败：\(error)")
-            let alert = NSAlert()
-            alert.messageText = "\(name) 集成操作失败"
-            alert.informativeText = "\(error)"
-            alert.runModal()
-        }
-    }
-
-    private func notifyIntegrationEnabled(_ name: String) {
-        let alert = NSAlert()
-        alert.messageText = "\(name) 集成已启用"
-        alert.informativeText = "请在 \(name) 中新开一个会话，hooks 才会生效。之后跑任务即可在此看到计数。"
-        alert.runModal()
+        AgentmonLog.shared.warn("pet", "\(PetNaming.species(old)) 因长期空闲饿死，新蛋孵化中")
     }
 
     @objc private func runDiagnostics() {
+        let integrations = descriptors.compactMap { d -> Diagnostics.IntegrationStatus? in
+            guard let installer = installers[d.id] else { return nil }
+            return Diagnostics.IntegrationStatus(descriptor: d, installer: installer)
+        }
         let report = Diagnostics.report(
             appVersion: AppInfo.version,
-            claudeSettings: AgentmonPaths.claudeSettings,
             reporterCommand: AppInfo.reporterCommand(),
-            installer: installer,
+            integrations: integrations,
             spool: AgentmonPaths.spool,
             stateFile: AgentmonPaths.stateFile,
             now: Date(),
-            recentLog: AgentmonLog.shared.recentLines(20),
-            qoderSettings: AgentmonPaths.qoderSettings,
-            qoderInstaller: qoderInstaller)
+            recentLog: AgentmonLog.shared.recentLines(20))
         let url = AgentmonPaths.diagnosticsFile
-        try? report.data(using: .utf8)?.write(to: url)
+        try? Data(report.utf8).write(to: url)
         NSWorkspace.shared.open(url)
     }
 

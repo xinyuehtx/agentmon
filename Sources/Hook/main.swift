@@ -1,24 +1,22 @@
 import Foundation
 import agentmonCore
 
-// agentmon-hook: Claude Code / Qoder hook 上报器。
-// 客户端在 hook 触发时把事件 JSON 通过 stdin 传入；本程序解析后原子写入 spool 目录。
-// 用法：注册命令为本可执行文件路径，可选带客户端名作为参数（默认 "Claude Code"）：
-//   /path/agentmon-hook            → client = "Claude Code"
-//   /path/agentmon-hook Qoder      → client = "Qoder"
+// agentmon-hook: 多客户端 hook 上报器。
+// 客户端在 hook 触发时把事件 JSON 通过 stdin 传入（Claude 家族 / Codex），或由 opencode 插件以
+// 归一化参数直传：`agentmon-hook <client> [<kind> [<sid>]]`。解析后原子写入 spool 目录。
+// 契约见 Sources/Core/HookInvocation.swift。
 
-let inputData = FileHandle.standardInput.readDataToEndOfFile()
-let obj = (try? JSONSerialization.jsonObject(with: inputData)) as? [String: Any]
-
-let eventName = (obj?["hook_event_name"] as? String) ?? "Unknown"
-let sessionID = (obj?["session_id"] as? String) ?? "unknown"
-let client = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "Claude Code"
+let args = CommandLine.arguments
+let stdin =
+    HookInvocation.needsStdin(arguments: args)
+    ? FileHandle.standardInput.readDataToEndOfFile() : Data()
+let inv = HookInvocation.resolve(arguments: args, stdin: stdin)
 
 do {
     try SpoolWriter.write(
-        hookEventName: eventName,
-        sessionID: sessionID,
-        client: client,
+        hookEventName: inv.eventName,
+        sessionID: inv.sessionID,
+        client: inv.client,
         receivedAt: Date(),
         directory: AgentmonPaths.spool
     )
