@@ -68,7 +68,7 @@ struct RasterPetView: View {
                     .accessibilityIdentifier("pet.canvas")
             }
             VStack(spacing: 3) {
-                Text("Lv\(state.level) · \(moodText)")
+                Text(state.isSkin ? "收藏 · \(moodText)" : "Lv\(state.level) · \(moodText)")
                     .font(.system(size: 11, weight: .semibold))
                     .accessibilityIdentifier("pet.state")
                     .accessibilityValue("\(moodRaw):\(state.level)")

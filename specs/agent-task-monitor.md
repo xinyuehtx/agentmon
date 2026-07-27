@@ -132,18 +132,25 @@ func threshold(forLevel level: Int) -> Double
 ```swift
 public final class EnergyEngine {
     public private(set) var energy: Double
-    public private(set) var level: Int          // 从 1 起，单调不回退
+    public private(set) var level: Int          // 从 1 起，单生命内单调不回退，封顶 graduationLevel
+    public private(set) var starveMinutes: Double
+    public var isGraduated: Bool { level >= config.graduationLevel }
     public let config: EnergyConfig
     public var onEvolve: ((EvolutionEvent) -> Void)?
+    public var onGraduate: (() -> Void)?        // 封顶毕业
+    public var onStarve: (() -> Void)?          // 饥饿死亡
 
     public init(config: EnergyConfig = .default,
                 energy: Double = 0,
                 level: Int = 1,
+                starveMinutes: Double = 0,
                 lastTick: Date)
 
     public func tick(now: Date, workingCount: Int, waitingCount: Int)
     public func registerCompletions(_ count: Int, now: Date)
     public func applyOfflineDecay(now: Date)
+    public func rebirth(now: Date)              // 换新蛋（重生/孵化）
+    public func suspend(now: Date)              // 暂停成长（展示皮肤）
     public func threshold(forLevel level: Int) -> Double
 }
 ```
@@ -172,8 +179,15 @@ public final class EnergyEngine {
 
 ### 4.3 不变量
 - `energy >= 0` 恒成立。
-- `level` 只增不减（坏日子仅停滞进度）。
+- 单生命内 `level` 只增不减（坏日子仅停滞进度）；`rebirth` 是显式的生命重置，不算回退。
+- `level` 封顶于 `config.graduationLevel`（到达即毕业，成长停止）。
 - 相同输入序列 → 相同结果（纯确定性，`now` 全部由入参驱动）。
+
+### 4.5 生命周期：毕业封顶 / 饥饿重生（新增）
+- **毕业封顶**：`checkEvolution` 循环加 `level < graduationLevel` 守卫；升到 `graduationLevel`（默认 5 = egg/juvenile/mature/final 四档后再攒满一档）时能量清零并触发一次 `onGraduate`。封顶后 `tick`/`registerCompletions` 冻结（不成长、不衰减、不饥饿）。物种由编排层去重加入永久皮肤收藏。
+- **饥饿计时**：`starveMinutes` 仅在「能量为 0 且完全空闲（working==0 且 waiting==0）」时累加；有活动或能量>0 即清零。达 `config.starveDeathMinutes`（默认 4320 = 3 天）触发一次 `onStarve`。`applyOfflineDecay` 估算离线期停留在 0 的分钟数并累加，但不在此触发回调（交由启动后首个 `tick` 判定，用户回来活动则自然存活）。
+- **重置/暂停**：`rebirth(now)` 将 energy/level/starveMinutes 归位（换新蛋，物种由编排层挑选）；`suspend(now)` 仅推进 `lastTick`（展示收藏皮肤期间暂停成长，避免恢复时补算大额 delta）。
+- **编排（MonitorCoordinator）**：持有 `graduated`（收藏）、`displaySkin`/`displayStage`（展示状态）、`availableSpecies`、可注入的 `speciesPicker`（默认 `PetSelection.nextSpecies`，优先未毕业且非当前）。`pump` 中 `displaySkin != nil` 时调 `suspend` 暂停成长；`onStarve` 置延迟标志，`tick` 后执行 `hatchNewPet`（挑新物种 + `rebirth`）并回调 `onDeath`。`showSkin/showActivePet/hatchNewPet` 供菜单调用；`MonitorSnapshot` 增 `displaySpecies/displayStage/isSkinMode/isGraduated/graduated`。
 
 ### 4.4 默认门槛的设计依据（可 dogfood 调参）
 单任务工作中 ≈ `+120/h`；日均完成 3–6 次 ≈ `+90~180`；一次 ~4h 专注日净增 ≈ `+500`。
@@ -253,6 +267,13 @@ public struct PersistentState: Codable, Equatable {
     public var level: Int
     public var completedByClient: [String: Int]
     public var lastTick: Date
+    // 以下均为可选（旧文件缺省即向后兼容）
+    public var completedDay: String?
+    public var species: String?
+    public var starveMinutes: Double?   // 饥饿计时
+    public var graduated: [String]?     // 已毕业永久皮肤
+    public var displaySkin: String?     // 当前展示的收藏皮肤（nil=活跃宠物）
+    public var displayStage: String?    // 展示皮肤的形态（nil=final）
 }
 
 public final class StateStore {
@@ -287,6 +308,8 @@ public final class StateStore {
 - `styleMask=[.borderless, .nonactivatingPanel]`，`level=.floating`，`isOpaque=false`，`backgroundColor=.clear`，`collectionBehavior=[.canJoinAllSpaces, .stationary]`，可拖拽。
 - 状态→动画：`totalWorking>0`→working；`totalWaiting>0 且 working==0`→waiting；均为 0→idle；收到 `end`→celebrate；`onEvolve`→evolve 演出并切皮肤到 `level`。
 - 互动：拖动移动；点击触发「撸猫」反应；hover 显示 energy/level。
+- **展示层由快照的 `displaySpecies/displayStage/isSkinMode` 驱动**：收藏皮肤模式下面板显示「收藏 · {mood}」，动作动画照常按 mood 播放（成长已暂停）。
+- **菜单「宠物」区**：状态行区分「Lv/能量」「已毕业 ✓」「展示收藏 · 成长已暂停」；「孵化新宠物…」（未毕业时确认放弃）；「收藏皮肤」子菜单按物种 → 形态（幼年体/成熟体/成年体）切换展示，含「显示当前宠物」返回活跃。
 
 ### 8.3 美术资源
 - Lv1 基础形态 + Lv2 进化形态（矢量，皮肤=配色/配饰切换）；资源置于 `Sources/Assets/`，以 `level` 索引。

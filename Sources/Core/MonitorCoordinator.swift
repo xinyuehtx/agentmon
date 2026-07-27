@@ -20,6 +20,16 @@ public struct MonitorSnapshot: Equatable {
     public let clients: [ClientSummary]
     public let lastEventAt: Date?
     public let eventsSeen: Int
+    /// 实际展示的物种（收藏皮肤模式为皮肤物种，否则为活跃宠物物种）。
+    public let displaySpecies: String
+    /// 实际展示的形态（皮肤模式为选定形态，否则由活跃 level 推导）。
+    public let displayStage: String
+    /// 是否处于收藏皮肤展示模式（成长已暂停）。
+    public let isSkinMode: Bool
+    /// 活跃宠物是否已毕业封顶。
+    public let isGraduated: Bool
+    /// 已解锁的永久皮肤物种列表。
+    public let graduated: [String]
 }
 
 /// 编排：摄取 spool → 更新 TaskStore → 结算 EnergyEngine → 输出快照。
@@ -40,13 +50,86 @@ public final class MonitorCoordinator {
     /// 本次安装分配到的宠物物种 id（App 设置，随状态持久化）。
     public var species: String?
 
+    // MARK: - 生命周期
+
+    /// 图集中全部可用物种 id（供挑选新物种）。
+    public var availableSpecies: [String] = []
+    /// 已毕业解锁的永久皮肤物种。
+    public private(set) var graduated: [String] = []
+    /// 当前展示的收藏皮肤物种；nil = 展示活跃宠物。
+    public private(set) var displaySkin: String?
+    /// 展示皮肤时选定的形态；nil = final。
+    public private(set) var displayStage: String?
+    /// 物种挑选器（可注入以便测试确定性）；默认用系统 RNG + PetSelection.nextSpecies。
+    public var speciesPicker: (_ available: [String], _ graduated: [String], _ current: String?) -> String?
+    /// 宠物毕业解锁永久皮肤时回调（参数为毕业物种）。
+    public var onGraduate: ((String) -> Void)?
+    /// 宠物饿死重生时回调（参数为死去的旧物种）。
+    public var onDeath: ((String) -> Void)?
+
+    private var pendingStarve = false
+
     public init(ingestor: SpoolIngestor, engine: EnergyEngine) {
         self.ingestor = ingestor
         self.engine = engine
+        self.speciesPicker = { available, graduated, current in
+            var rng = SystemRandomNumberGenerator()
+            return PetSelection.nextSpecies(
+                available: available, graduated: graduated, current: current, using: &rng)
+        }
         self.engine.onEvolve = { [weak self] event in
             AgentmonLog.shared.info("evolve", "→ Lv\(event.newLevel)")
             self?.onEvolve?(event)
         }
+        self.engine.onGraduate = { [weak self] in self?.handleGraduate() }
+        self.engine.onStarve = { [weak self] in self?.pendingStarve = true }
+    }
+
+    private func handleGraduate() {
+        guard let species = species else { return }
+        if !graduated.contains(species) { graduated.append(species) }
+        AgentmonLog.shared.info("pet", "毕业 → 解锁永久皮肤 \(species)")
+        onGraduate?(species)
+    }
+
+    /// 恢复持久化的生命周期状态（毕业收藏 / 展示皮肤 / 当前物种）。
+    public func restoreLifecycle(
+        species: String?, graduated: [String], displaySkin: String?, displayStage: String?
+    ) {
+        self.species = species
+        self.graduated = graduated
+        // 展示皮肤仅在物种确实已毕业时才生效，否则回落活跃宠物。
+        if let skin = displaySkin, graduated.contains(skin) {
+            self.displaySkin = skin
+            self.displayStage = displayStage
+        } else {
+            self.displaySkin = nil
+            self.displayStage = nil
+        }
+    }
+
+    /// 主动孵化新宠物：挑新物种、重置活跃宠物、切回活跃展示。
+    public func hatchNewPet(now: Date) {
+        let old = species
+        let pick = speciesPicker(availableSpecies, graduated, old) ?? old ?? availableSpecies.first
+        species = pick
+        displaySkin = nil
+        displayStage = nil
+        engine.rebirth(now: now)
+        AgentmonLog.shared.info("pet", "孵化新宠物 \(old ?? "?") → \(pick ?? "?")")
+    }
+
+    /// 切换到展示某收藏皮肤（成长暂停）。仅接受已毕业物种。
+    public func showSkin(_ species: String, stage: String?) {
+        guard graduated.contains(species) else { return }
+        displaySkin = species
+        displayStage = stage
+    }
+
+    /// 切回展示活跃宠物（恢复成长）。
+    public func showActivePet() {
+        displaySkin = nil
+        displayStage = nil
     }
 
     /// 本地日期字符串（YYYY-MM-DD），由入参 `date` + 系统时区决定，保持可测。
@@ -102,10 +185,24 @@ public final class MonitorCoordinator {
                     + "working=\(store.totalWorking) waiting=\(store.totalWaiting)")
         }
 
-        if completions > 0 {
-            engine.registerCompletions(completions, now: now)
+        // 展示收藏皮肤期间暂停活跃宠物成长（只推进 lastTick，不结算能量/饥饿）。
+        if displaySkin != nil {
+            engine.suspend(now: now)
+        } else {
+            if completions > 0 {
+                engine.registerCompletions(completions, now: now)
+            }
+            engine.tick(now: now, workingCount: store.totalWorking, waitingCount: store.totalWaiting)
         }
-        engine.tick(now: now, workingCount: store.totalWorking, waitingCount: store.totalWaiting)
+
+        // 饿死重生：能量长期归零空闲 → 换新蛋。
+        if pendingStarve {
+            pendingStarve = false
+            let old = species
+            hatchNewPet(now: now)
+            AgentmonLog.shared.info("pet", "饿死重生 \(old ?? "?") → \(species ?? "?")")
+            onDeath?(old ?? "")
+        }
         return snapshot()
     }
 
@@ -113,6 +210,11 @@ public final class MonitorCoordinator {
         let clients = store.allClients().map {
             ClientSummary(client: $0, counts: store.counts(for: $0))
         }
+        let activeSpecies = species ?? ""
+        let isSkinMode = displaySkin != nil
+        let shownSpecies = displaySkin ?? activeSpecies
+        let shownStage =
+            isSkinMode ? (displayStage ?? "final") : PetSelection.stage(forLevel: engine.level)
         return MonitorSnapshot(
             totalWorking: store.totalWorking,
             totalWaiting: store.totalWaiting,
@@ -121,7 +223,12 @@ public final class MonitorCoordinator {
             level: engine.level,
             clients: clients,
             lastEventAt: lastEventAt,
-            eventsSeen: eventsSeen
+            eventsSeen: eventsSeen,
+            displaySpecies: shownSpecies,
+            displayStage: shownStage,
+            isSkinMode: isSkinMode,
+            isGraduated: engine.isGraduated,
+            graduated: graduated
         )
     }
 
@@ -132,6 +239,10 @@ public final class MonitorCoordinator {
             energy: engine.energy, level: engine.level,
             completedByClient: completed, lastTick: now,
             completedDay: completedDay.isEmpty ? Self.dayString(now) : completedDay,
-            species: species)
+            species: species,
+            starveMinutes: engine.starveMinutes,
+            graduated: graduated,
+            displaySkin: displaySkin,
+            displayStage: displayStage)
     }
 }

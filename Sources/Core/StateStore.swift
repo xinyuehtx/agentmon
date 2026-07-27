@@ -10,10 +10,20 @@ public struct PersistentState: Codable, Equatable {
     public var completedDay: String?
     /// 本次安装随机分配到的宠物物种 id；旧文件/首次为 nil（App 会随机并回填）。
     public var species: String?
+    /// 能量归零后累计的空闲分钟数（饥饿计时）；旧文件为 nil → 0。
+    public var starveMinutes: Double?
+    /// 已毕业解锁的永久皮肤物种 id 列表；旧文件为 nil → []。
+    public var graduated: [String]?
+    /// 当前展示的收藏皮肤物种 id；nil = 展示活跃宠物。
+    public var displaySkin: String?
+    /// 展示皮肤时选定的形态（egg/juvenile/mature/final）；nil = final。
+    public var displayStage: String?
 
     public init(
         energy: Double, level: Int, completedByClient: [String: Int], lastTick: Date,
-        completedDay: String? = nil, species: String? = nil
+        completedDay: String? = nil, species: String? = nil,
+        starveMinutes: Double? = nil, graduated: [String]? = nil,
+        displaySkin: String? = nil, displayStage: String? = nil
     ) {
         self.energy = energy
         self.level = level
@@ -21,6 +31,10 @@ public struct PersistentState: Codable, Equatable {
         self.lastTick = lastTick
         self.completedDay = completedDay
         self.species = species
+        self.starveMinutes = starveMinutes
+        self.graduated = graduated
+        self.displaySkin = displaySkin
+        self.displayStage = displayStage
     }
 }
 

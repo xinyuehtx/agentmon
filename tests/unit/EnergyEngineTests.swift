@@ -116,4 +116,76 @@ final class EnergyEngineTests: XCTestCase {
         e.tick(now: t0.addingTimeInterval(-600), workingCount: 1, waitingCount: 0)
         XCTAssertEqual(e.energy, 50, accuracy: 1e-6)
     }
+
+    // MARK: - 毕业封顶 / 饥饿 / 重生
+
+    private func starveConfig(_ deathMinutes: Double) -> EnergyConfig {
+        EnergyConfig(
+            workingPerMin: 2, waitingPerMin: -1, completedBonus: 30, idleDecayPerMin: -0.5,
+            thresholds: [300, 900, 2000], graduationLevel: 5, starveDeathMinutes: deathMinutes)
+    }
+
+    func testGraduationCapAndFreeze() {
+        // level 4（final）再攒满一档(4000) → level 5 毕业封顶
+        let e = makeEngine(energy: 3990, level: 4)
+        var graduated = 0
+        e.onGraduate = { graduated += 1 }
+        e.registerCompletions(1, now: t0)  // 3990 + 30 = 4020 >= 4000
+        XCTAssertEqual(e.level, 5)
+        XCTAssertTrue(e.isGraduated)
+        XCTAssertEqual(e.energy, 0, accuracy: 1e-6)  // 封顶后能量清零
+        XCTAssertEqual(graduated, 1)
+
+        // 封顶后冻结：即便工作也不再涨、不再触发毕业
+        e.tick(now: at(100), workingCount: 3, waitingCount: 0)
+        XCTAssertEqual(e.level, 5)
+        XCTAssertEqual(e.energy, 0, accuracy: 1e-6)
+        XCTAssertEqual(graduated, 1)
+    }
+
+    func testStarvationAccrualAndSignal() {
+        let e = EnergyEngine(config: starveConfig(100), energy: 0, level: 1, lastTick: t0)
+        var starved = 0
+        e.onStarve = { starved += 1 }
+        e.tick(now: at(60), workingCount: 0, waitingCount: 0)  // 能量已 0 且空闲
+        XCTAssertEqual(e.starveMinutes, 60, accuracy: 1e-6)
+        XCTAssertEqual(starved, 0)
+        e.tick(now: at(110), workingCount: 0, waitingCount: 0)  // 累计 110 >= 100
+        XCTAssertEqual(starved, 1)
+        // 越阈后不重复触发
+        e.tick(now: at(160), workingCount: 0, waitingCount: 0)
+        XCTAssertEqual(starved, 1)
+    }
+
+    func testStarvationResetsOnActivity() {
+        let e = EnergyEngine(config: starveConfig(100), energy: 0, level: 1, lastTick: t0)
+        e.tick(now: at(60), workingCount: 0, waitingCount: 0)
+        XCTAssertEqual(e.starveMinutes, 60, accuracy: 1e-6)
+        e.tick(now: at(70), workingCount: 1, waitingCount: 0)  // 有活动 → 清零
+        XCTAssertEqual(e.starveMinutes, 0, accuracy: 1e-6)
+    }
+
+    func testOfflineDecayAccruesStarvation() {
+        // energy 30, -0.5/min → 60min 触底；离线 200min → 停留 0 的 140min 计入饥饿
+        let e = EnergyEngine(config: starveConfig(100), energy: 30, level: 1, lastTick: t0)
+        e.applyOfflineDecay(now: at(200))
+        XCTAssertEqual(e.energy, 0, accuracy: 1e-6)
+        XCTAssertEqual(e.starveMinutes, 140, accuracy: 1e-6)
+    }
+
+    func testRebirthResets() {
+        let e = makeEngine(energy: 500, level: 3)
+        e.rebirth(now: at(10))
+        XCTAssertEqual(e.level, 1)
+        XCTAssertEqual(e.energy, 0, accuracy: 1e-6)
+        XCTAssertEqual(e.starveMinutes, 0, accuracy: 1e-6)
+    }
+
+    func testSuspendPausesAccrual() {
+        let e = makeEngine(energy: 100, level: 2)
+        e.suspend(now: at(1000))  // 只推进 lastTick，不结算
+        XCTAssertEqual(e.energy, 100, accuracy: 1e-6)
+        e.tick(now: at(1000), workingCount: 0, waitingCount: 0)  // elapsed=0
+        XCTAssertEqual(e.energy, 100, accuracy: 1e-6)
+    }
 }

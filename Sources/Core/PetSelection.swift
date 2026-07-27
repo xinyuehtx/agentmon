@@ -16,4 +16,16 @@ public enum PetSelection {
     ) -> String? {
         ids.randomElement(using: &rng)
     }
+
+    /// 挑选下一只宠物的物种（重生 / 主动孵化）：
+    /// 优先没养过（未毕业收藏）且非当前的物种；集齐后再避开当前随机；再退回全体随机。
+    public static func nextSpecies<R: RandomNumberGenerator>(
+        available: [String], graduated: [String], current: String?, using rng: inout R
+    ) -> String? {
+        let fresh = available.filter { !graduated.contains($0) && $0 != current }
+        if let pick = fresh.randomElement(using: &rng) { return pick }
+        let notCurrent = available.filter { $0 != current }
+        if let pick = notCurrent.randomElement(using: &rng) { return pick }
+        return available.randomElement(using: &rng)
+    }
 }

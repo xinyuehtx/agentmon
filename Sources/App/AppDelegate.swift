@@ -56,9 +56,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             config: config,
             energy: loaded?.energy ?? 0,
             level: loaded?.level ?? 1,
+            starveMinutes: loaded?.starveMinutes ?? 0,
             lastTick: loaded?.lastTick ?? Date()
         )
-        engine.applyOfflineDecay(now: Date())  // 离线期空闲衰减
+        engine.applyOfflineDecay(now: Date())  // 离线期空闲衰减（含饥饿累计）
         coordinator = MonitorCoordinator(
             ingestor: SpoolIngestor(directory: AgentmonPaths.spool),
             engine: engine
@@ -67,12 +68,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.petState.mood = .evolve
             self?.petState.level = event.newLevel
         }
+        coordinator.onGraduate = { [weak self] species in self?.notifyGraduated(species) }
+        coordinator.onDeath = { [weak self] old in self?.notifyDeath(old) }
         coordinator.restore(
             completedByClient: loaded?.completedByClient ?? [:],
             day: loaded?.completedDay, now: Date())
 
         // 宠物物种：读持久化，否则从图集包中随机分配一次（卸载重装因 state.json 丢失而重掷）。
         let activeIDs = rasterStore?.manifest.speciesIDs ?? []
+        coordinator.availableSpecies = activeIDs
         let resolvedSpecies: String
         if let persisted = loaded?.species, activeIDs.contains(persisted) {
             resolvedSpecies = persisted
@@ -80,10 +84,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             var rng = SystemRandomNumberGenerator()
             resolvedSpecies = PetSelection.choose(speciesIDs: activeIDs, using: &rng) ?? activeIDs.first ?? ""
         }
-        coordinator.species = resolvedSpecies
+        // 生命周期：恢复毕业收藏与展示皮肤（仅保留仍在图集内的物种）。
+        let restoredGraduated = (loaded?.graduated ?? []).filter { activeIDs.contains($0) }
+        coordinator.restoreLifecycle(
+            species: resolvedSpecies, graduated: restoredGraduated,
+            displaySkin: loaded?.displaySkin, displayStage: loaded?.displayStage)
         petState.species = resolvedSpecies
         lastCompleted = (loaded?.completedByClient.values.reduce(0, +)) ?? 0
-        AgentmonLog.shared.info("pet", "物种=\(resolvedSpecies)")
+        AgentmonLog.shared.info(
+            "pet", "物种=\(resolvedSpecies) 收藏=\(restoredGraduated) 展示=\(loaded?.displaySkin ?? "活跃")")
         AgentmonLog.shared.info(
             "app",
             "集成状态=\((try? installer.isInstalled()) == true ? "已启用" : "未启用") "
@@ -159,7 +168,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         petState.working = snap.totalWorking
         petState.waiting = snap.totalWaiting
         petState.completed = snap.totalCompleted
-        petState.stage = PetSelection.stage(forLevel: snap.level)
+        petState.species = snap.displaySpecies
+        petState.stage = snap.displayStage
+        petState.isSkin = snap.isSkinMode
         if snap.totalCompleted > lastCompleted {
             petState.mood = .celebrate  // 刚完成任务 → 撒花演出
         } else if petState.mood == .evolve || petState.mood == .celebrate {
@@ -210,7 +221,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         disabled("● 监控中")
         disabled("最近事件：\(lastEventText(snap))")
-        disabled("Lv\(snap.level)   能量 \(Int(snap.energy))/\(next)")
+        if snap.isSkinMode {
+            disabled("展示收藏：\(Self.speciesName(snap.displaySpecies))（\(Self.stageName(snap.displayStage))）· 成长已暂停")
+        } else if snap.isGraduated {
+            disabled("Lv\(snap.level)   已毕业 ✓ 可孵化新宠物")
+        } else {
+            disabled("Lv\(snap.level)   能量 \(Int(snap.energy))/\(next)")
+        }
         menu.addItem(.separator())
 
         let installed = (try? installer.isInstalled()) ?? false
@@ -229,6 +246,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         addAction(
             to: menu, title: (petPanel?.isVisible ?? false) ? "隐藏宠物" : "显示宠物",
             action: #selector(togglePet))
+        addPetLifecycleMenu(to: menu, snap: snap)
+        menu.addItem(.separator())
         addAction(
             to: menu, title: installed ? "停用 Claude 集成" : "启用 Claude 集成",
             action: #selector(toggleClaude))
@@ -248,6 +267,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item)
     }
 
+    /// 宠物形态：孵化新宠物 + 收藏皮肤切换（各形态）+ 显示当前宠物。
+    private func addPetLifecycleMenu(to menu: NSMenu, snap: MonitorSnapshot) {
+        addAction(to: menu, title: "孵化新宠物…", action: #selector(hatchNew))
+
+        guard !snap.graduated.isEmpty else { return }
+        let wardrobe = NSMenu()
+
+        // 显示当前活跃宠物
+        let activeItem = NSMenuItem(
+            title: "显示当前宠物", action: #selector(showActive), keyEquivalent: "")
+        activeItem.target = self
+        activeItem.state = snap.isSkinMode ? .off : .on
+        wardrobe.addItem(activeItem)
+        wardrobe.addItem(.separator())
+
+        // 每个已毕业物种 → 形态子菜单
+        for species in snap.graduated {
+            let speciesItem = NSMenuItem(title: Self.speciesName(species), action: nil, keyEquivalent: "")
+            let stagesMenu = NSMenu()
+            for stage in PetSelection.stageOrder {
+                let item = NSMenuItem(
+                    title: Self.stageName(stage), action: #selector(selectSkin(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = ["species": species, "stage": stage]
+                item.state =
+                    (snap.isSkinMode && snap.displaySpecies == species && snap.displayStage == stage)
+                    ? .on : .off
+                stagesMenu.addItem(item)
+            }
+            speciesItem.submenu = stagesMenu
+            wardrobe.addItem(speciesItem)
+        }
+
+        let root = NSMenuItem(title: "收藏皮肤（\(snap.graduated.count)）", action: nil, keyEquivalent: "")
+        root.submenu = wardrobe
+        menu.addItem(root)
+    }
+
+    /// 物种 id → 展示名（无映射则原样）。
+    static func speciesName(_ id: String) -> String {
+        [
+            "bird_fire": "火焰鸟", "dog_cabbage": "白菜狗", "sealion_water": "水海狮",
+        ][id] ?? id
+    }
+
+    /// 形态 id → 中文名。
+    static func stageName(_ stage: String) -> String {
+        [
+            "egg": "幼年·蛋", "juvenile": "幼年体", "mature": "成熟体", "final": "成年体",
+        ][stage] ?? stage
+    }
+
     private func lastEventText(_ snap: MonitorSnapshot) -> String {
         guard let at = snap.lastEventAt else { return "暂无（尚未收到事件）" }
         let age = Int(Date().timeIntervalSince(at))
@@ -264,6 +335,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func togglePet() {
         guard let panel = petPanel else { return }
         if panel.isVisible { panel.orderOut(nil) } else { panel.orderFrontRegardless() }
+    }
+
+    @objc private func hatchNew() {
+        // 未毕业时孵化 = 放弃当前宠物，需确认。
+        if let snap = lastSnapshot, !snap.isGraduated, !snap.isSkinMode {
+            let alert = NSAlert()
+            alert.messageText = "孵化新宠物？"
+            alert.informativeText = "当前宠物尚未毕业，孵化新宠物会放弃它（不会进入收藏）。确定继续吗？"
+            alert.addButton(withTitle: "孵化")
+            alert.addButton(withTitle: "取消")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
+        coordinator.hatchNewPet(now: Date())
+        pump()
+    }
+
+    @objc private func showActive() {
+        coordinator.showActivePet()
+        pump()
+    }
+
+    @objc private func selectSkin(_ sender: NSMenuItem) {
+        guard let info = sender.representedObject as? [String: String],
+            let species = info["species"], let stage = info["stage"]
+        else { return }
+        coordinator.showSkin(species, stage: stage)
+        pump()
+    }
+
+    private func notifyGraduated(_ species: String) {
+        petState.mood = .celebrate
+        let alert = NSAlert()
+        alert.messageText = "🎓 \(Self.speciesName(species)) 毕业啦！"
+        alert.informativeText = "它已解锁为永久皮肤，可在菜单「收藏皮肤」里随时切换展示与形态。你可以选择「孵化新宠物」开启下一只。"
+        alert.runModal()
+    }
+
+    private func notifyDeath(_ old: String) {
+        petState.mood = .idle
+        AgentmonLog.shared.warn("pet", "\(Self.speciesName(old)) 因长期空闲饿死，新蛋孵化中")
     }
 
     @objc private func toggleClaude() { toggleIntegration(installer, name: "Claude Code") }

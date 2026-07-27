@@ -37,4 +37,36 @@ final class PetSelectionTests: XCTestCase {
         var rng = SeededRNG(seed: 1)
         XCTAssertNil(PetSelection.choose(speciesIDs: [], using: &rng))
     }
+
+    func testNextSpeciesPrefersUnraised() {
+        let ids = ["a", "b", "c"]
+        var rng = SeededRNG(seed: 7)
+        // 已毕业 a、当前 b → 只能挑 c（唯一未毕业且非当前）
+        let pick = PetSelection.nextSpecies(
+            available: ids, graduated: ["a"], current: "b", using: &rng)
+        XCTAssertEqual(pick, "c")
+    }
+
+    func testNextSpeciesAvoidsCurrentWhenAllGraduated() {
+        let ids = ["a", "b"]
+        var rng = SeededRNG(seed: 3)
+        // 全部毕业 → 无未养过者，回退「避开当前」→ 只能是非当前 a
+        let pick = PetSelection.nextSpecies(
+            available: ids, graduated: ["a", "b"], current: "b", using: &rng)
+        XCTAssertEqual(pick, "a")
+    }
+
+    func testNextSpeciesFallsBackWhenOnlyCurrentAvailable() {
+        var rng = SeededRNG(seed: 5)
+        // 唯一物种即当前且已毕业 → 最终回退全体随机，仍返回它
+        let pick = PetSelection.nextSpecies(
+            available: ["a"], graduated: ["a"], current: "a", using: &rng)
+        XCTAssertEqual(pick, "a")
+    }
+
+    func testNextSpeciesEmptyReturnsNil() {
+        var rng = SeededRNG(seed: 1)
+        XCTAssertNil(
+            PetSelection.nextSpecies(available: [], graduated: [], current: nil, using: &rng))
+    }
 }

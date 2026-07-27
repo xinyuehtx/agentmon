@@ -7,19 +7,41 @@ public struct EnergyConfig: Codable, Equatable {
     public var completedBonus: Double  // 每次完成一次性加成
     public var idleDecayPerMin: Double  // 无任务时 / 分钟（通常为负）
     public var thresholds: [Double]  // thresholds[i] = 从 level (i+1) 升到 (i+2) 所需能量
+    /// 毕业封顶等级：level 到达此值即封顶（成长停止、解锁永久皮肤）。
+    /// 默认 5 = stage 四档(egg/juvenile/mature/final) 后再攒满一档能量。
+    public var graduationLevel: Int
+    /// 饥饿死亡阈值：能量归零后持续空闲累计分钟达此值即「饿死」重生。默认 4320 = 3 天。
+    public var starveDeathMinutes: Double
 
     public init(
         workingPerMin: Double,
         waitingPerMin: Double,
         completedBonus: Double,
         idleDecayPerMin: Double,
-        thresholds: [Double]
+        thresholds: [Double],
+        graduationLevel: Int = 5,
+        starveDeathMinutes: Double = 4320
     ) {
         self.workingPerMin = workingPerMin
         self.waitingPerMin = waitingPerMin
         self.completedBonus = completedBonus
         self.idleDecayPerMin = idleDecayPerMin
         self.thresholds = thresholds
+        self.graduationLevel = graduationLevel
+        self.starveDeathMinutes = starveDeathMinutes
+    }
+
+    /// 向后兼容解码：旧 config.json 无 graduationLevel/starveDeathMinutes 字段时用默认值，
+    /// 不丢用户已调的速率/门槛。
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        workingPerMin = try c.decode(Double.self, forKey: .workingPerMin)
+        waitingPerMin = try c.decode(Double.self, forKey: .waitingPerMin)
+        completedBonus = try c.decode(Double.self, forKey: .completedBonus)
+        idleDecayPerMin = try c.decode(Double.self, forKey: .idleDecayPerMin)
+        thresholds = try c.decode([Double].self, forKey: .thresholds)
+        graduationLevel = try c.decodeIfPresent(Int.self, forKey: .graduationLevel) ?? 5
+        starveDeathMinutes = try c.decodeIfPresent(Double.self, forKey: .starveDeathMinutes) ?? 4320
     }
 
     public static let `default` = EnergyConfig(
