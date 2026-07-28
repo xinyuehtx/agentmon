@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import agentmonCore
 
@@ -84,7 +85,7 @@ private struct DashboardView: View {
         CardSection(title: model.isSkinMode ? "宠物（展示收藏 · 成长已暂停）" : "宠物") {
             HStack {
                 if model.isSkinMode {
-                    Text("展示：\(PetNaming.species(model.displaySpecies))（\(PetNaming.stage(model.displayStage))）")
+                    Text("展示：\(PetNaming.species(model.displaySpecies))")
                 } else if model.isGraduated {
                     Text("Lv\(model.level)   已毕业 ✓ 可孵化新宠物")
                 } else {
@@ -258,6 +259,10 @@ private struct EnergyConfigEditor: View {
 private struct PetSettingsView: View {
     @EnvironmentObject var model: AppModel
 
+    private var unlocked: Set<String> {
+        Set(model.graduated + [model.activeElement])
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("桌宠设置").font(.title2).bold()
@@ -268,32 +273,35 @@ private struct PetSettingsView: View {
                     isOn: Binding(get: { model.petVisible }, set: { model.onTogglePet?($0) }))
             }
 
-            CardSection(title: "宠物") {
+            CardSection(title: "极光罗盘猫") {
                 HStack {
                     Text(statusLine)
                     Spacer()
+                    if model.isSkinMode {
+                        Button("显示当前宠物") { model.onShowActive?() }
+                    }
                     Button("孵化新宠物…") { model.onHatch?() }
                 }
             }
 
-            if !model.graduated.isEmpty {
-                CardSection(title: "收藏皮肤（\(model.graduated.count)）") {
-                    Button("显示当前宠物") { model.onShowActive?() }
-                        .disabled(!model.isSkinMode)
-                    Divider()
-                    ForEach(model.graduated, id: \.self) { species in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(PetNaming.species(species)).font(.headline)
-                            HStack {
-                                ForEach(PetSelection.stageOrder, id: \.self) { stage in
-                                    Button(PetNaming.stage(stage)) {
-                                        model.onShowSkin?(species, stage)
-                                    }
-                                    .buttonStyle(.bordered)
+            CardSection(title: "元素图鉴（\(unlocked.count)/\(model.elements.count)）") {
+                Text("完成任务养成、毕业即解锁新元素；点击已解锁元素切换展示。")
+                    .font(.caption).foregroundStyle(.secondary)
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10
+                ) {
+                    ForEach(model.elements) { e in
+                        ElementCell(
+                            element: e,
+                            isUnlocked: unlocked.contains(e.id),
+                            isCurrent: e.id == model.displaySpecies,
+                            onTap: {
+                                if e.id == model.activeElement {
+                                    model.onShowActive?()
+                                } else {
+                                    model.onShowSkin?(e.id)
                                 }
-                            }
-                        }
-                        .padding(.vertical, 2)
+                            })
                     }
                 }
             }
@@ -303,12 +311,56 @@ private struct PetSettingsView: View {
     }
 
     private var statusLine: String {
-        if model.isSkinMode {
-            return "展示收藏：\(PetNaming.species(model.displaySpecies))（\(PetNaming.stage(model.displayStage))）"
-        }
-        if model.isGraduated { return "当前：\(PetNaming.species(model.displaySpecies)) · 已毕业 ✓" }
-        return "当前：\(PetNaming.species(model.displaySpecies))（\(PetNaming.stage(model.displayStage))）"
+        let name = PetNaming.species(model.displaySpecies)
+        if model.isSkinMode { return "展示收藏：\(name)" }
+        if model.isGraduated { return "当前：\(name) · Lv\(model.level) · 成年 ✓ 已毕业" }
+        return "当前：\(name) · Lv\(model.level) · \(growthStage)"
     }
+
+    private var growthStage: String {
+        if model.growth >= 0.98 { return "成年" }
+        if model.growth >= 0.75 { return "成长中" }
+        return "幼年"
+    }
+}
+
+/// 图鉴单元格：立绘缩略 + 名称；已解锁彩色可点，未解锁灰显。
+private struct ElementCell: View {
+    let element: PetElementInfo
+    let isUnlocked: Bool
+    let isCurrent: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        VStack(spacing: 4) {
+            portrait
+                .frame(width: 64, height: 64)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(isUnlocked ? Color(white: 0.92) : Color.primary.opacity(0.05))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(isCurrent ? tintColor : tintColor.opacity(0.35), lineWidth: isCurrent ? 2.5 : 1))
+            Text(element.name).font(.caption2)
+                .foregroundStyle(isUnlocked ? .primary : .secondary)
+        }
+        .opacity(isUnlocked ? 1 : 0.45)
+        .contentShape(Rectangle())
+        .onTapGesture { if isUnlocked { onTap() } }
+        .help(isUnlocked ? element.name : "\(element.name)（未解锁）")
+    }
+
+    @ViewBuilder private var portrait: some View {
+        if let img = NSImage(contentsOfFile: element.portraitPath) {
+            Image(nsImage: img).resizable().scaledToFit().padding(4)
+                .saturation(isUnlocked ? 1 : 0).opacity(isUnlocked ? 1 : 0.6)
+        } else {
+            Image(systemName: "pawprint.fill").foregroundStyle(tintColor)
+        }
+    }
+
+    private var tintColor: Color { Color(hex: element.tint) ?? .accentColor }
 }
 
 // MARK: - 复用小组件
@@ -403,13 +455,29 @@ private struct Badge: View {
     }
 }
 
-/// 物种 / 形态 id → 中文名（UI 展示；无映射则原样）。
+/// 元素 id → 中文名（UI 展示；无映射则原样）。
 enum PetNaming {
+    private static let names: [String: String] = [
+        "water": "水", "grass": "草", "fire": "火", "wind": "风",
+        "electric": "电", "ice": "冰", "ghost": "幽灵", "psychic": "超能",
+        "rock": "岩石", "light": "光", "dark": "暗", "rainbow": "彩虹",
+    ]
     static func species(_ id: String) -> String {
-        ["bird_fire": "火焰鸟", "dog_cabbage": "白菜狗", "sealion_water": "水海狮"][id] ?? (id.isEmpty ? "宠物" : id)
+        names[id] ?? (id.isEmpty ? "极光罗盘猫" : id)
     }
-    static func stage(_ stage: String) -> String {
-        ["egg": "幼年·蛋", "juvenile": "幼年体", "mature": "成熟体", "final": "成年体"][stage] ?? stage
+}
+
+extension Color {
+    /// 从 "#RRGGBB" 十六进制创建颜色。
+    init?(hex: String) {
+        var s = hex.trimmingCharacters(in: .whitespaces)
+        if s.hasPrefix("#") { s.removeFirst() }
+        guard s.count == 6, let v = Int(s, radix: 16) else { return nil }
+        self.init(
+            .sRGB,
+            red: Double((v >> 16) & 0xFF) / 255,
+            green: Double((v >> 8) & 0xFF) / 255,
+            blue: Double(v & 0xFF) / 255)
     }
 }
 

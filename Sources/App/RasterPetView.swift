@@ -52,6 +52,12 @@ final class RasterPetStore {
         cache[action.file] = out
         return out
     }
+
+    /// 某元素静态立绘的绝对路径（供控制台图鉴）。
+    func elementPortraitURL(_ id: String) -> URL? {
+        guard let e = manifest.element(id: id) else { return nil }
+        return baseDir.appendingPathComponent(e.portrait)
+    }
 }
 
 /// 光栅宠物：播放用户原创图集的逐帧动画（透明、抗锯齿缩放）。
@@ -89,17 +95,13 @@ struct RasterPetView: View {
 
     private func render(_ ctx: GraphicsContext, size: CGSize, at date: Date) {
         let m = store.manifest
-        guard
-            let species = m.species(id: state.species) ?? m.species.first,
-            let stage = species.stage(state.stage) ?? species.stages.first
-        else { return }
         let key = actionKey(state.mood)
-        guard let action = stage.actions[key] ?? stage.actions["idle"] ?? stage.actions.values.first else { return }
+        guard let action = m.action(key) ?? m.action("idle") ?? m.actions.values.first else { return }
         let frames = store.frames(action)
         guard !frames.isEmpty else { return }
 
         let n = frames.count
-        let loop = key != "complete"
+        let loop = key != "complete" && key != "evolve"  // 完成/进化为一次性演出
         let elapsed = max(0, date.timeIntervalSince(state.variantStart))
         let cycle = Double(n) / Double(max(1, action.fps))  // 一轮秒数
         // 连续帧位置（用于交叉溶解补帧，播放更顺滑）
@@ -111,11 +113,28 @@ struct RasterPetView: View {
         let nextI = loop ? (i + 1) % n : min(i + 1, n - 1)
         let f = u - Double(Int(u))
 
+        // 成长：体型随等级从 0.55（幼年）长到 1.0（成年），底部对齐 → 从脚下长大
+        let growth = max(0.4, min(1.0, state.growth))
+
+        // 光环：成长后期在脚下叠一层柔和辉光（越成年越亮），底层绘制
+        if growth > 0.6 {
+            let gr = (growth - 0.6) / 0.4
+            let radius = size.width * (0.30 + 0.16 * gr)
+            let center = CGPoint(x: size.width / 2, y: size.height * 0.66)
+            let rect = CGRect(
+                x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+            ctx.fill(
+                Path(ellipseIn: rect),
+                with: .radialGradient(
+                    Gradient(colors: [Color.white.opacity(0.16 * gr), .clear]),
+                    center: center, startRadius: 0, endRadius: radius))
+        }
+
         // 帧尺寸一致（并集裁剪），同位绘制 → 交叉溶解即平滑补帧
         func draw(_ cg: CGImage, opacity: Double) {
             let iw = CGFloat(cg.width)
             let ih = CGFloat(cg.height)
-            let scale = min(size.width / iw, size.height / ih)
+            let scale = min(size.width / iw, size.height / ih) * growth
             let w = iw * scale
             let h = ih * scale
             var c = ctx
@@ -133,7 +152,8 @@ struct RasterPetView: View {
         case .idle: return "idle"
         case .working: return "working"
         case .waiting: return "waiting"
-        case .celebrate, .evolve: return "complete"
+        case .celebrate, .evolve: return mood == .evolve ? "evolve" : "complete"
+        case .hungry: return "hungry"
         }
     }
     private var moodText: String {
@@ -143,6 +163,7 @@ struct RasterPetView: View {
         case .waiting: return "等你"
         case .celebrate: return "完成啦"
         case .evolve: return "进化!"
+        case .hungry: return "饿了"
         }
     }
     private var moodRaw: String {
@@ -152,6 +173,7 @@ struct RasterPetView: View {
         case .waiting: return "waiting"
         case .celebrate: return "celebrate"
         case .evolve: return "evolve"
+        case .hungry: return "hungry"
         }
     }
 }

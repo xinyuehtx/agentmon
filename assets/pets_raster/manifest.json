@@ -1,378 +1,137 @@
 {
-  "frameHeight" : 160,
-  "schemaVersion" : 1,
-  "species" : [
-    {
-      "element" : "fire",
-      "id" : "bird_fire",
-      "stages" : [
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "bird_fire\/egg_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 107
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "bird_fire\/egg_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 97
-            }
-          },
-          "stage" : "egg"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "bird_fire\/juvenile_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 119
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "bird_fire\/juvenile_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 129
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "bird_fire\/juvenile_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 154
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "bird_fire\/juvenile_working.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 177
-            }
-          },
-          "stage" : "juvenile"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "bird_fire\/mature_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 108
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "bird_fire\/mature_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 115
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "bird_fire\/mature_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 160
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "bird_fire\/mature_working.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 186
-            }
-          },
-          "stage" : "mature"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "bird_fire\/final_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 101
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "bird_fire\/final_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 144
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "bird_fire\/final_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 158
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "bird_fire\/final_working.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 193
-            }
-          },
-          "stage" : "final"
-        }
-      ]
+  "actions": {
+    "complete": {
+      "fh": 160,
+      "file": "anim/complete.png",
+      "fps": 18,
+      "frames": 21,
+      "fw": 100
     },
-    {
-      "element" : "grass",
-      "id" : "dog_cabbage",
-      "stages" : [
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/egg_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 129
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/egg_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 131
-            }
-          },
-          "stage" : "egg"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/juvenile_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 95
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/juvenile_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 135
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/juvenile_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 143
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/juvenile_working.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 178
-            }
-          },
-          "stage" : "juvenile"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/mature_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 92
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/mature_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 141
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/mature_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 157
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/mature_working.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 193
-            }
-          },
-          "stage" : "mature"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/final_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 103
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/final_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 152
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/final_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 157
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/final_working.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 185
-            }
-          },
-          "stage" : "final"
-        }
-      ]
+    "evolve": {
+      "fh": 160,
+      "file": "anim/evolve.png",
+      "fps": 18,
+      "frames": 21,
+      "fw": 120
     },
-    {
-      "element" : "water",
-      "id" : "sealion_water",
-      "stages" : [
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "sealion_water\/egg_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 162
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "sealion_water\/egg_idle.png",
-              "fps" : 6,
-              "frames" : 8,
-              "fw" : 125
-            }
-          },
-          "stage" : "egg"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "sealion_water\/juvenile_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 93
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "sealion_water\/juvenile_idle.png",
-              "fps" : 6,
-              "frames" : 8,
-              "fw" : 130
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "sealion_water\/juvenile_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 131
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "sealion_water\/juvenile_working.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 200
-            }
-          },
-          "stage" : "juvenile"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "sealion_water\/mature_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 80
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "sealion_water\/mature_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 148
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "sealion_water\/mature_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 163
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "sealion_water\/mature_working.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 190
-            }
-          },
-          "stage" : "mature"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "sealion_water\/final_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 79
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "sealion_water\/final_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 122
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "sealion_water\/final_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 130
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "sealion_water\/final_working.png",
-              "fps" : 9,
-              "frames" : 8,
-              "fw" : 125
-            }
-          },
-          "stage" : "final"
-        }
-      ]
+    "hungry": {
+      "fh": 160,
+      "file": "anim/hungry.png",
+      "fps": 18,
+      "frames": 24,
+      "fw": 127
+    },
+    "idle": {
+      "fh": 160,
+      "file": "anim/idle.png",
+      "fps": 17,
+      "frames": 24,
+      "fw": 138
+    },
+    "jump": {
+      "fh": 160,
+      "file": "anim/jump.png",
+      "fps": 15,
+      "frames": 12,
+      "fw": 112
+    },
+    "skill": {
+      "fh": 160,
+      "file": "anim/skill.png",
+      "fps": 27,
+      "frames": 24,
+      "fw": 157
+    },
+    "waiting": {
+      "fh": 160,
+      "file": "anim/waiting.png",
+      "fps": 22,
+      "frames": 24,
+      "fw": 127
+    },
+    "working": {
+      "fh": 160,
+      "file": "anim/working.png",
+      "fps": 27,
+      "frames": 24,
+      "fw": 164
     }
-  ]
+  },
+  "character": "aurora",
+  "elements": [
+    {
+      "id": "water",
+      "name": "水",
+      "portrait": "elements/water.png",
+      "tint": "#4AA3FF"
+    },
+    {
+      "id": "grass",
+      "name": "草",
+      "portrait": "elements/grass.png",
+      "tint": "#64C46A"
+    },
+    {
+      "id": "fire",
+      "name": "火",
+      "portrait": "elements/fire.png",
+      "tint": "#FF7A3C"
+    },
+    {
+      "id": "wind",
+      "name": "风",
+      "portrait": "elements/wind.png",
+      "tint": "#6FE0C0"
+    },
+    {
+      "id": "electric",
+      "name": "电",
+      "portrait": "elements/electric.png",
+      "tint": "#F4C430"
+    },
+    {
+      "id": "ice",
+      "name": "冰",
+      "portrait": "elements/ice.png",
+      "tint": "#7FD4FF"
+    },
+    {
+      "id": "ghost",
+      "name": "幽灵",
+      "portrait": "elements/ghost.png",
+      "tint": "#9B7EDE"
+    },
+    {
+      "id": "psychic",
+      "name": "超能",
+      "portrait": "elements/psychic.png",
+      "tint": "#FF7EC8"
+    },
+    {
+      "id": "rock",
+      "name": "岩石",
+      "portrait": "elements/rock.png",
+      "tint": "#C9A24A"
+    },
+    {
+      "id": "light",
+      "name": "光",
+      "portrait": "elements/light.png",
+      "tint": "#FFE6A0"
+    },
+    {
+      "id": "dark",
+      "name": "暗",
+      "portrait": "elements/dark.png",
+      "tint": "#5566CC"
+    },
+    {
+      "id": "rainbow",
+      "name": "彩虹",
+      "portrait": "elements/rainbow.png",
+      "tint": "#B98CFF"
+    }
+  ],
+  "frameHeight": 160,
+  "schemaVersion": 2
 }

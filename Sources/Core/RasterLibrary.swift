@@ -1,7 +1,7 @@
 import Foundation
 
-/// 光栅精灵图集清单（对应 assets/pets_raster/manifest.json，由 scripts/process-packs.swift 生成）。
-/// 每个动作 = 一张紧凑透明「条」PNG（横排 `frames` 帧，每帧 `fw`×`fh`）。
+/// 光栅精灵图集清单（对应 assets/pets_raster/manifest.json，由 scripts/process-aurora.py 生成）。
+/// v2：单角色（极光罗盘猫）共享一套动作动画（每动作一张横排透明「条」）+ 12 元素静态立绘收藏。
 
 public struct RasterAction: Codable, Equatable {
     public var file: String  // 相对 manifest 目录
@@ -9,34 +9,52 @@ public struct RasterAction: Codable, Equatable {
     public var fw: Int
     public var fh: Int
     public var fps: Int
+
+    public init(file: String, frames: Int, fw: Int, fh: Int, fps: Int) {
+        self.file = file
+        self.frames = frames
+        self.fw = fw
+        self.fh = fh
+        self.fps = fps
+    }
 }
 
-public struct RasterStage: Codable, Equatable {
-    public var stage: String
-    public var actions: [String: RasterAction]  // idle/working/waiting/complete
-}
-
-public struct RasterSpecies: Codable, Equatable {
+/// 一个可收藏的元素变体（静态立绘 + 主题色）。
+public struct RasterElement: Codable, Equatable {
     public var id: String
-    public var element: String
-    public var stages: [RasterStage]
+    public var name: String
+    public var portrait: String  // 相对 manifest 目录
+    public var tint: String  // 十六进制主题色，如 "#4AA3FF"
 
-    public func stage(_ name: String) -> RasterStage? { stages.first { $0.stage == name } }
+    public init(id: String, name: String, portrait: String, tint: String) {
+        self.id = id
+        self.name = name
+        self.portrait = portrait
+        self.tint = tint
+    }
 }
 
 public struct RasterManifest: Codable, Equatable {
     public var schemaVersion: Int
+    public var character: String
     public var frameHeight: Int
-    public var species: [RasterSpecies]
+    public var actions: [String: RasterAction]  // idle/working/waiting/complete/evolve/hungry/jump/skill
+    public var elements: [RasterElement]
 
-    public init(schemaVersion: Int, frameHeight: Int, species: [RasterSpecies]) {
+    public init(
+        schemaVersion: Int, character: String, frameHeight: Int,
+        actions: [String: RasterAction], elements: [RasterElement]
+    ) {
         self.schemaVersion = schemaVersion
+        self.character = character
         self.frameHeight = frameHeight
-        self.species = species
+        self.actions = actions
+        self.elements = elements
     }
 
-    public func species(id: String) -> RasterSpecies? { species.first { $0.id == id } }
-    public var speciesIDs: [String] { species.map(\.id) }
+    public func action(_ key: String) -> RasterAction? { actions[key] }
+    public func element(id: String) -> RasterElement? { elements.first { $0.id == id } }
+    public var elementIDs: [String] { elements.map(\.id) }
 }
 
 public enum RasterLibrary {

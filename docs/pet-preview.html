@@ -1,434 +1,93 @@
 <!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>agentmon 宠物预览</title>
+<title>agentmon 宠物预览 · 极光罗盘猫</title>
 <style>
   body{margin:0;font-family:-apple-system,system-ui,"PingFang SC",sans-serif;background:#12141a;color:#e8eaed;text-align:center}
-  h1{font-size:20px;margin:20px 0 4px}.muted{color:#9aa0aa;font-size:13px;margin:0 0 12px}
+  h1{font-size:20px;margin:20px 0 4px}h2{font-size:16px;margin:28px 0 8px}
+  .muted{color:#9aa0aa;font-size:13px;margin:0 0 12px}
   .controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px}
   select,button{background:#1c2029;color:#e8eaed;border:1px solid #2a2f3a;border-radius:8px;padding:8px 12px;font-size:14px}
   canvas{background:radial-gradient(circle at 50% 42%,#1b2030,#0b0d12);border-radius:16px;margin:10px auto;display:block;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+  .gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:760px;margin:8px auto;padding:0 16px}
+  .cell{background:#eef1f6;border:2px solid #262b36;border-radius:14px;padding:8px}
+  .cell img{width:100%;height:auto;display:block}
+  .cell .name{font-size:12px;color:#2a2f3a;margin-top:4px;font-weight:600}
   footer{color:#6b7280;font-size:12px;margin:24px}
+  a{color:#ff8a12}
 </style></head><body>
-<h1>agentmon 宠物图鉴 · 动画预览</h1>
-<p class="muted">原创手绘图集（逐帧动画），非任何既有 IP</p>
+<h1>agentmon 宠物预览 · 极光罗盘猫</h1>
+<p class="muted">单角色 8 套动作动画 + 12 元素收藏 · 原创素材，非任何既有 IP</p>
 <div class="controls">
-  <select id="sp"></select><select id="stage"></select><select id="action"></select>
+  <select id="action"></select>
   <button id="play">⏸ 暂停</button>
   <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
 </div>
 <canvas id="c" width="320" height="320"></canvas>
-<footer>agentmon · <a style="color:#ff8a12" href="index.html">返回首页</a></footer>
+
+<h2>元素图鉴（12）</h2>
+<p class="muted">养成毕业即解锁；活体桌宠为通用动画，元素以静态立绘收藏。</p>
+<div id="gallery" class="gallery"></div>
+
+<footer>agentmon · <a href="index.html">返回首页</a></footer>
 <script>
-var M={
-  "frameHeight" : 160,
-  "schemaVersion" : 1,
-  "species" : [
-    {
-      "element" : "fire",
-      "id" : "bird_fire",
-      "stages" : [
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "bird_fire\/egg_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 107
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "bird_fire\/egg_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 97
-            }
-          },
-          "stage" : "egg"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "bird_fire\/juvenile_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 119
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "bird_fire\/juvenile_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 129
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "bird_fire\/juvenile_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 154
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "bird_fire\/juvenile_working.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 177
-            }
-          },
-          "stage" : "juvenile"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "bird_fire\/mature_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 108
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "bird_fire\/mature_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 115
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "bird_fire\/mature_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 160
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "bird_fire\/mature_working.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 186
-            }
-          },
-          "stage" : "mature"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "bird_fire\/final_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 101
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "bird_fire\/final_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 144
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "bird_fire\/final_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 158
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "bird_fire\/final_working.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 193
-            }
-          },
-          "stage" : "final"
-        }
-      ]
-    },
-    {
-      "element" : "grass",
-      "id" : "dog_cabbage",
-      "stages" : [
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/egg_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 129
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/egg_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 131
-            }
-          },
-          "stage" : "egg"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/juvenile_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 95
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/juvenile_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 135
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/juvenile_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 143
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/juvenile_working.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 178
-            }
-          },
-          "stage" : "juvenile"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/mature_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 92
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/mature_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 141
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/mature_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 157
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/mature_working.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 193
-            }
-          },
-          "stage" : "mature"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/final_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 103
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/final_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 152
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/final_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 157
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "dog_cabbage\/final_working.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 185
-            }
-          },
-          "stage" : "final"
-        }
-      ]
-    },
-    {
-      "element" : "water",
-      "id" : "sealion_water",
-      "stages" : [
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "sealion_water\/egg_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 162
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "sealion_water\/egg_idle.png",
-              "fps" : 6,
-              "frames" : 8,
-              "fw" : 125
-            }
-          },
-          "stage" : "egg"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "sealion_water\/juvenile_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 93
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "sealion_water\/juvenile_idle.png",
-              "fps" : 6,
-              "frames" : 8,
-              "fw" : 130
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "sealion_water\/juvenile_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 131
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "sealion_water\/juvenile_working.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 200
-            }
-          },
-          "stage" : "juvenile"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "sealion_water\/mature_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 80
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "sealion_water\/mature_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 148
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "sealion_water\/mature_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 163
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "sealion_water\/mature_working.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 190
-            }
-          },
-          "stage" : "mature"
-        },
-        {
-          "actions" : {
-            "complete" : {
-              "fh" : 160,
-              "file" : "sealion_water\/final_complete.png",
-              "fps" : 25,
-              "frames" : 30,
-              "fw" : 79
-            },
-            "idle" : {
-              "fh" : 160,
-              "file" : "sealion_water\/final_idle.png",
-              "fps" : 21,
-              "frames" : 30,
-              "fw" : 122
-            },
-            "waiting" : {
-              "fh" : 160,
-              "file" : "sealion_water\/final_waiting.png",
-              "fps" : 33,
-              "frames" : 30,
-              "fw" : 130
-            },
-            "working" : {
-              "fh" : 160,
-              "file" : "sealion_water\/final_working.png",
-              "fps" : 9,
-              "frames" : 8,
-              "fw" : 125
-            }
-          },
-          "stage" : "final"
-        }
-      ]
-    }
-  ]
-};
-var cv=document.getElementById('c'),ctx=cv.getContext('2d'),$=function(i){return document.getElementById(i);};
-var playing=true,t0=performance.now(),imgs={};
-function imgFor(file){ if(imgs[file])return imgs[file]; var im=new Image(); im.onerror=function(){ if(!im._alt){im._alt=1; im.src='../assets/pets_raster/'+file;} }; im.src='pets_raster/'+file; imgs[file]=im; return im; }
-function spById(id){ for(var i=0;i<M.species.length;i++) if(M.species[i].id===id) return M.species[i]; }
-function opts(sel,arr){ sel.innerHTML=''; arr.forEach(function(v){ var o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); }); }
-function curSp(){ return spById($('sp').value); }
-function curStage(){ var s=curSp().stages; for(var i=0;i<s.length;i++) if(s[i].stage===$('stage').value) return s[i]; }
-function curAction(){ return curStage().actions[$('action').value]; }
-opts($('sp'), M.species.map(function(s){return s.id;}));
-function refillStage(){ opts($('stage'), curSp().stages.map(function(s){return s.stage;})); }
-function refillAction(){ opts($('action'), Object.keys(curStage().actions)); }
-refillStage(); refillAction();
-$('sp').onchange=function(){refillStage();refillAction();reset();};
-$('stage').onchange=function(){refillAction();reset();};
-$('action').onchange=reset;
-$('play').onclick=function(){playing=!playing;$('play').textContent=playing?'⏸ 暂停':'▶ 播放';};
-function reset(){t0=performance.now();}
-function frame(now){
-  var a=curAction(), speed=parseFloat($('speed').value);
-  var el=(now-t0)/1000*speed, loop=($('action').value!=='complete');
-  var n=a.frames, cycle=n/Math.max(1,a.fps);
-  var u = loop ? ((el % cycle)/cycle)*n : Math.min(el/cycle,0.999)*Math.max(1,n-1);
-  var i=Math.min(Math.floor(u),n-1), ni=loop?((i+1)%n):Math.min(i+1,n-1), fr=u-Math.floor(u);
-  var im=imgFor(a.file);
-  ctx.clearRect(0,0,cv.width,cv.height);
-  if(im.complete&&im.naturalWidth>0){
-    var s=Math.min(cv.width/a.fw, cv.height/a.fh)*0.92, dw=a.fw*s, dh=a.fh*s, dx=(cv.width-dw)/2, dy=cv.height-dh-8;
-    ctx.globalAlpha=1; ctx.drawImage(im, i*a.fw,0,a.fw,a.fh, dx,dy,dw,dh);
-    if(fr>0.001){ ctx.globalAlpha=fr; ctx.drawImage(im, ni*a.fw,0,a.fw,a.fh, dx,dy,dw,dh); }
-    ctx.globalAlpha=1;
-  }
-  requestAnimationFrame(frame);
+var BASE = "pets_raster/";
+var cvs = document.getElementById("c"), ctx = cvs.getContext("2d");
+var actionSel = document.getElementById("action"), speedSel = document.getElementById("speed");
+var playBtn = document.getElementById("play"), playing = true;
+var M = null, strips = {}, cur = null;
+
+function loadStrip(act) {
+  if (strips[act.file]) return strips[act.file];
+  var img = new Image(); img.src = BASE + act.file;
+  strips[act.file] = img; return img;
 }
-requestAnimationFrame(frame);
+
+function draw(ts) {
+  requestAnimationFrame(draw);
+  if (!M || !cur) return;
+  var act = M.actions[cur];
+  var img = loadStrip(act);
+  ctx.clearRect(0, 0, cvs.width, cvs.height);
+  if (!img.complete || !img.naturalWidth) return;
+  var fw = img.naturalWidth / act.frames, fh = img.naturalHeight;
+  var speed = parseFloat(speedSel.value);
+  var t = playing ? ts / 1000 : (window._frozen || 0);
+  if (playing) window._frozen = t;
+  var i = Math.floor(t * act.fps * speed) % act.frames;
+  var scale = Math.min(cvs.width / fw, cvs.height / fh) * 0.92;
+  var w = fw * scale, h = fh * scale;
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(img, i * fw, 0, fw, fh, (cvs.width - w) / 2, cvs.height - h - 8, w, h);
+}
+
+playBtn.onclick = function () {
+  playing = !playing;
+  playBtn.textContent = playing ? "⏸ 暂停" : "▶ 播放";
+};
+actionSel.onchange = function () { cur = actionSel.value; };
+
+var ACTION_CN = {idle:"发呆(rest)",working:"干活(run)",waiting:"等待(sleep)",complete:"完成(cheer)",
+  evolve:"进化(happy)",hungry:"饿了(hungry)",jump:"跳跃(jump)",skill:"技能(skill)"};
+var ORDER = ["idle","working","waiting","complete","evolve","hungry","jump","skill"];
+
+fetch(BASE + "manifest.json").then(function (r) { return r.json(); }).then(function (m) {
+  M = m;
+  var keys = ORDER.filter(function (k) { return m.actions[k]; });
+  keys.forEach(function (k) {
+    var o = document.createElement("option"); o.value = k; o.textContent = ACTION_CN[k] || k;
+    actionSel.appendChild(o);
+  });
+  cur = keys[0];
+  var g = document.getElementById("gallery");
+  (m.elements || []).forEach(function (e) {
+    var d = document.createElement("div"); d.className = "cell";
+    d.style.borderColor = e.tint;
+    var im = document.createElement("img"); im.src = BASE + e.portrait; im.alt = e.name;
+    var nm = document.createElement("div"); nm.className = "name"; nm.textContent = e.name;
+    d.appendChild(im); d.appendChild(nm); g.appendChild(d);
+  });
+  requestAnimationFrame(draw);
+}).catch(function () {
+  document.querySelector(".muted").textContent = "无法加载 manifest（请在 Pages/HTTP 环境查看）";
+});
 </script></body></html>

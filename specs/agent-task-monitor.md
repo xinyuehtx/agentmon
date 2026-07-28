@@ -323,13 +323,15 @@ public final class StateStore {
 
 ### 8.2 PetPanel（NSPanel）
 - `styleMask=[.borderless, .nonactivatingPanel]`，`level=.floating`，`isOpaque=false`，`backgroundColor=.clear`，`collectionBehavior=[.canJoinAllSpaces, .stationary]`，可拖拽。
-- 状态→动画：`totalWorking>0`→working；`totalWaiting>0 且 working==0`→waiting；均为 0→idle；收到 `end`→celebrate；`onEvolve`→evolve 演出并切皮肤到 `level`。
-- 互动：拖动移动；点击触发「撸猫」反应；hover 显示 energy/level。
-- **展示层由快照的 `displaySpecies/displayStage/isSkinMode` 驱动**：收藏皮肤模式下面板显示「收藏 · {mood}」，动作动画照常按 mood 播放（成长已暂停）。
-- **菜单「宠物」区**：状态行区分「Lv/能量」「已毕业 ✓」「展示收藏 · 成长已暂停」；「孵化新宠物…」（未毕业时确认放弃）；「收藏皮肤」子菜单按物种 → 形态（幼年体/成熟体/成年体）切换展示，含「显示当前宠物」返回活跃。
+- 状态→动画：`totalWorking>0`→working(run)；`totalWaiting>0 且 working==0`→waiting(sleep)；均为 0 且能量>0→idle(rest)、能量=0→hungry；收到 `end`→complete(cheer)；升级→evolve(happy)。
+- **成长表现**：无分阶段立绘，改用**体型 + 光环**随等级成长——`growth`(0.55→1.0，由 `level/graduationLevel` 推导)缩放桌宠、脚下对齐（从脚下长大）+ 后期柔和辉光；展示收藏/已毕业视为成年(1.0)。
+- **展示层由快照的 `displaySpecies/isSkinMode` 驱动**：收藏模式下播通用动画、面板显示所选元素立绘与名称（成长暂停）。
+- 互动：拖动移动；右键「隐藏宠物」。菜单细节见 §8.1（已移入控制台）。
 
-### 8.3 美术资源
-- Lv1 基础形态 + Lv2 进化形态（矢量，皮肤=配色/配饰切换）；资源置于 `Sources/Assets/`，以 `level` 索引。
+### 8.3 美术资源（v2：极光罗盘猫）
+- **单角色**「极光罗盘猫」，8 套动作动画（rest/sleep/run/jump/skill-attack/cheer/hungry/happy，米白底原始帧）+ **12 元素静态立绘**（水/草/火/风/电/冰/幽灵/超能/岩石/光/暗/彩虹）作为可收藏皮肤（替换旧「3 物种×4 阶段」）。
+- 流水线 `scripts/process-aurora.py`：抠米白底 → 公共 bbox 裁剪缩放 → **自纠正光流补帧**（4×→2×→原帧，按重影度回退）→ 横排透明条 + `manifest.json`(schemaVersion 2)；元素立绘取设定板规整 512×512 方格（尺寸一致）。
+- **资产门禁** `tests/integration/AssetIntegrityTests.swift`（进 CI）：结构/几何/立绘尺寸一致/帧非空/补帧重影（半透明占比中位数 ≤ 0.33）。
 
 ## 9. 日志与「埋点」（本地，不上传）
 - 用 `os.Logger`（subsystem `com.agentmon`）：categories `adapter`/`engine`/`ui`/`persistence`。

@@ -43,5 +43,11 @@ playwright-report/
 # Pages 部署时从 assets/pets_raster 拷入的预览副本（勿提交）
 /docs/pets_raster/
 
+# 宠物素材源包（体积大；用 scripts/process-aurora.py 生成 assets/pets_raster，勿提交源包）
+/*-animation-pack-*.zip
+
 # Playwright MCP artifacts
 .playwright-mcp/
+
+# Python
+__pycache__/

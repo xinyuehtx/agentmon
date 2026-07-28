@@ -43,14 +43,14 @@ final class PetPersistenceTests: XCTestCase {
         let s = PersistentState(
             energy: 0, level: 5, completedByClient: [:],
             lastTick: Date(timeIntervalSince1970: 1), completedDay: "2026-07-25",
-            species: "dog_cabbage", starveMinutes: 120, graduated: ["bird_fire"],
-            displaySkin: "bird_fire", displayStage: "mature")
+            species: "fire", starveMinutes: 120, graduated: ["water"],
+            displaySkin: "water", displayStage: nil)
         try store.saveState(s)
         let loaded = try store.loadState()
         XCTAssertEqual(loaded?.starveMinutes, 120)
-        XCTAssertEqual(loaded?.graduated, ["bird_fire"])
-        XCTAssertEqual(loaded?.displaySkin, "bird_fire")
-        XCTAssertEqual(loaded?.displayStage, "mature")
+        XCTAssertEqual(loaded?.graduated, ["water"])
+        XCTAssertEqual(loaded?.displaySkin, "water")
+        XCTAssertEqual(loaded?.species, "fire")
     }
 
     func testEnergyConfigBackwardCompatDecode() throws {

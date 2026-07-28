@@ -89,8 +89,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             completedByClient: loaded?.completedByClient ?? [:],
             day: loaded?.completedDay, now: Date())
 
-        // 宠物物种：读持久化，否则从图集包中随机分配一次（卸载重装因 state.json 丢失而重掷）。
-        let activeIDs = rasterStore?.manifest.speciesIDs ?? []
+        // 宠物元素：读持久化，否则从图集包中随机分配一次（卸载重装因 state.json 丢失而重掷）。
+        let activeIDs = rasterStore?.manifest.elementIDs ?? []
         coordinator.availableSpecies = activeIDs
         let resolvedSpecies: String
         if let persisted = loaded?.species, activeIDs.contains(persisted) {
@@ -119,7 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         appModel.onTogglePet = { [weak self] on in self?.setPetVisible(on) }
         appModel.onHatch = { [weak self] in self?.hatchNew() }
         appModel.onShowActive = { [weak self] in self?.showActive() }
-        appModel.onShowSkin = { [weak self] sp, st in self?.selectSkin(species: sp, stage: st) }
+        appModel.onShowSkin = { [weak self] element in self?.selectSkin(element: element) }
         appModel.onRunDiagnostics = { [weak self] in self?.runDiagnostics() }
         appModel.onOpenLog = { [weak self] in self?.openLog() }
         panelController = ControlPanelWindowController(
@@ -156,7 +156,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let store =
             rasterStore
             ?? RasterPetStore(
-                manifest: RasterManifest(schemaVersion: 0, frameHeight: 0, species: []),
+                manifest: RasterManifest(
+                    schemaVersion: 0, character: "", frameHeight: 0, actions: [:], elements: []),
                 baseDir: URL(fileURLWithPath: "/"))
         let host = NSHostingView(
             rootView: RasterPetView(state: petState, store: store, onHide: { [weak self] in self?.hidePet() }))
@@ -199,20 +200,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         petState.species = snap.displaySpecies
         petState.stage = snap.displayStage
         petState.isSkin = snap.isSkinMode
+        petState.growth = growthValue(snap)
         if snap.totalCompleted > lastCompleted {
             petState.mood = .celebrate  // 刚完成任务 → 撒花演出
         } else if petState.mood == .evolve || petState.mood == .celebrate {
-            petState.mood = snap.totalWorking > 0 ? .working : (snap.totalWaiting > 0 ? .waiting : .idle)
-        } else if snap.totalWorking > 0 {
-            petState.mood = .working
-        } else if snap.totalWaiting > 0 {
-            petState.mood = .waiting
+            petState.mood = liveMood(snap)
         } else {
-            petState.mood = .idle
+            petState.mood = liveMood(snap)
         }
         lastCompleted = snap.totalCompleted
         refreshVariant()
         feedDashboard(snap)
+    }
+
+    /// 由快照推导常驻情绪：工作 > 等待 > （空闲且能量为 0 → 饿了）> 发呆。
+    private func liveMood(_ snap: MonitorSnapshot) -> PetState.Mood {
+        if snap.totalWorking > 0 { return .working }
+        if snap.totalWaiting > 0 { return .waiting }
+        if snap.energy == 0 && !snap.isSkinMode && !snap.isGraduated { return .hungry }
+        return .idle
+    }
+
+    /// 成长度 0..1：等级从 1 长到毕业门槛。展示收藏/已毕业视为成年（1.0）。
+    private func growthValue(_ snap: MonitorSnapshot) -> Double {
+        if snap.isSkinMode || snap.isGraduated { return 1.0 }
+        let g = Double(coordinator.engine.config.graduationLevel)
+        let t = g > 1 ? Double(snap.level - 1) / (g - 1) : 1
+        return min(1.0, max(0.0, 0.55 + 0.45 * t))
     }
 
     /// 把快照 + 看板/活动流灌入控制台数据源。
@@ -225,6 +239,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         appModel.level = snap.level
         appModel.energyToNext = coordinator.engine.threshold(forLevel: snap.level)
         appModel.isGraduated = snap.isGraduated
+        appModel.growth = growthValue(snap)
         appModel.clients = snap.clients
         appModel.sessions = coordinator.store.sessionRows()
         appModel.activity = coordinator.recentActivity(limit: 50)
@@ -234,15 +249,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         appModel.displayStage = snap.displayStage
         appModel.isSkinMode = snap.isSkinMode
         appModel.graduated = snap.graduated
+        appModel.activeElement = coordinator.species ?? ""
     }
 
-    /// mood → 状态键（idle/working/waiting/complete）。
+    /// mood → 状态键（idle/working/waiting/complete/hungry）。
     private func stateKey(for mood: PetState.Mood) -> String {
         switch mood {
         case .idle: return "idle"
         case .working: return "working"
         case .waiting: return "waiting"
         case .celebrate, .evolve: return "complete"
+        case .hungry: return "hungry"
         }
     }
 
@@ -276,10 +293,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         panelController?.show()
     }
 
-    /// 面板打开时刷新设置态（集成状态、能量参数、宠物态、仪表盘）。
+    /// 面板打开时刷新设置态（集成状态、能量参数、宠物态、图鉴、仪表盘）。
     private func refreshModelSettings() {
         appModel.energyConfig = coordinator.engine.config
         appModel.petVisible = petPanel?.isVisible ?? appSettings.petVisible
+        appModel.elements = (rasterStore?.manifest.elements ?? []).map {
+            PetElementInfo(
+                id: $0.id, name: $0.name, tint: $0.tint,
+                portraitPath: rasterStore?.elementPortraitURL($0.id)?.path ?? "")
+        }
         refreshIntegrationRows()
         if let snap = lastSnapshot { feedDashboard(snap) }
     }
@@ -388,8 +410,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         pump()
     }
 
-    private func selectSkin(species: String, stage: String) {
-        coordinator.showSkin(species, stage: stage)
+    private func selectSkin(element: String) {
+        coordinator.showSkin(element, stage: nil)
         pump()
     }
 
