@@ -43,8 +43,16 @@ playwright-report/
 # Pages 部署时从 assets/pets_raster 拷入的预览副本（勿提交）
 /docs/pets_raster/
 
-# 宠物素材源包（体积大；用 scripts/process-aurora.py 生成 assets/pets_raster，勿提交源包）
+# 宠物素材源包（体积大；用 scripts/video_to_pack.py 生成 assets/pets_raster，勿提交源包）
 /*-animation-pack-*.zip
+
+# 桌宠源素材 mons/：原画(PNG)入库，视频(.mp4 等)与体积过大的关键帧集不入库
+mons/**/*.mp4
+mons/**/*.mov
+mons/**/*.m4v
+mons/**/*.webm
+mons/verdant/video/
+mons/meowling_keyframes/
 
 # Playwright MCP artifacts
 .playwright-mcp/
@@ -52,5 +60,3 @@ playwright-report/
 # Python
 __pycache__/
 
-# 原始素材源（视频/关键帧，体积大；用 scripts/ 生成 assets/pets_raster/packs/<mon>，勿入库）
-/mons/

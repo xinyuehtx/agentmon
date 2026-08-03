@@ -270,6 +270,9 @@ def main():
                     "stages": stages, "elements": []}
     if args.element:
         manifest["element"] = args.element
+    # 素材授权（随包携带，便于二次使用时保留署名）
+    manifest["license"] = "CC-BY-4.0"
+    manifest["attribution"] = "agentmon (https://github.com/xinyuehtx/agentmon)"
 
     with open(os.path.join(args.out, "manifest.json"), "w") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2, sort_keys=True)

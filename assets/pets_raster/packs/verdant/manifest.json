@@ -1,8 +1,10 @@
 {
+  "attribution": "agentmon (https://github.com/xinyuehtx/agentmon)",
   "character": "verdant",
   "element": "grass",
   "elements": [],
   "frameHeight": 160,
+  "license": "CC-BY-4.0",
   "schemaVersion": 3,
   "stages": [
     {

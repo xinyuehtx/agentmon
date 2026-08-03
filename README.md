@@ -29,7 +29,7 @@ agentmon 监控本地已安装的 Agent 客户端（Claude Code、Qoder、qoderw
 
 - **菜单栏**：猫图标 + `▶工作中 ⏸等待中 ✓已完成`（总数）；点开选「打开控制台…」进入详细面板。
 - **控制台**：仪表盘（各客户端计数 / 会话看板 / 活动流 / 能量等级）· 监控设置（逐客户端开关、可编辑路径、诊断/日志、能量参数）· 桌宠设置（显示隐藏、成长形态进度）。
-- **桌面宠物**：**草系罗盘猫（verdant）**随状态播放逐帧动画（发呆/干活/等待/完成/进化/饿了/跳跃/技能，透明精灵）；**右键 →「隐藏宠物」**，之后从控制台「桌宠设置」重开；可拖动。**Lv0–Lv3 四档，等级即形态：Lv0 蛋 → Lv1 幼体 → Lv2 少年 → Lv3 成熟，升级即进化**；每升一级解锁更多随机空闲动作（跳跃/技能/撒花，越高级越活泼）。
+- **桌面宠物**：**草系罗盘猫（verdant）**随状态播放逐帧动画（发呆/干活/等待/完成/进化/饿了/跳跃/技能，透明精灵）；**右键 →「隐藏宠物」**，之后从控制台「桌宠设置」重开；可拖动。**Lv0–Lv3 四档，等级即形态：Lv0 蛋 → Lv1 幼体 → Lv2 少年 → Lv3 成熟，升级即进化**；每升一级解锁更多随机空闲动作（跳跃/技能/撒花，越高级越活泼）。在线动态图鉴 👉 **<https://xinyuehtx.github.io/agentmon/pets.html>**（4 形态 × 8 动作，共 32 段动画）。
   - 接新素材：把每个形态每个动作的原创视频放进 `mons/<角色>/<形态>/<动作>.mp4`，跑 `python3 scripts/video_to_pack.py --mon-dir mons/<角色> --out assets/pets_raster/packs/<角色>`（抽帧/抠底/对齐/拼条 + 生成 v3 manifest）。详见 [`.claude/skills/pet-material-pipeline`](./.claude/skills/pet-material-pipeline/SKILL.md)。
   - **本地自定义桌宠**（不随发布分发）：把任意图集包放到 `~/Library/Application Support/agentmon/custom_pet/`，App 会优先加载；删除该目录即恢复随包原创。⚠️ 若使用第三方素材，请自行遵循其授权，切勿提交/分发。
 - **能量/进化**：见下方「能量玩法」。
@@ -67,7 +67,7 @@ Sources/App/     菜单栏 App + 控制台窗口（AppModel / ControlPanelView�
                  （AppKit + SwiftUI）+ --selftest / --doctor
 Sources/Hook/    agentmon-hook：多客户端 hook 上报器（stdin 或 <client> <kind> <sid> 参数 → 原子写 spool）
 assets/pets_raster/packs/  宠物图集包（每包含 v3 manifest.json + 各形态动作条；由 scripts/video_to_pack.py 生成）
-scripts/         package.sh（打 .app）· make-icon.swift（图标）· video_to_pack.py（视频→图集）· classify_videos.py · preview-packs.py
+scripts/         package.sh（打 .app）· make-icon.swift（图标）· video_to_pack.py（视频→图集）· classify_videos.py · preview-packs.py · build-pet-gallery.py（生成 docs/pets.html 展示页）
 tests/unit/      单元测试     tests/integration/  集成测试     tests/e2e/  XCUITest 场景
 ```
 
@@ -82,9 +82,13 @@ tests/unit/      单元测试     tests/integration/  集成测试     tests/e2e
 
 能量累计跨过门槛触发升级（默认 3 档 `[100,250,500]`，约 3 天活跃即可从 **Lv0**（蛋）升到满级 **Lv3**（成熟）；**等级即形态，升级即进化**，并解锁更多随机空闲动作（跳跃/技能/撒花）。等级单生命内单调不回退。数值见 `config.json`（`~/Library/Application Support/agentmon/`）。
 
-## 版权与素材合法性
+## 许可证与素材授权
 
-- **本仓库与发布包仅含原创素材**（草系罗盘猫 verdant：4 形态 × 8 动作，由作者原创视频经 `scripts/video_to_pack.py` 生成），可自由分发。
-- **第三方素材（DyberPet / BongoCat / 各类同人模型等）不入库、不随发布分发**：其多为 GPL-3.0（传染性 copyleft）或受版权保护的 IP，自行添加「仅自用」声明并不能为他人 IP 重新授权，也不能使公开分发合法。
-- **本地使用（合规）**：把**自行下载/制作**的图集包放到 `~/Library/Application Support/agentmon/custom_pet/`，App 会优先加载，供**个人本地使用**；删除该目录即恢复随包原创。此路径下素材**只在你本机**，不进入本仓库/发布包。
+- **代码**：[MIT](./LICENSE) —— 可自由使用/修改/商用，保留版权声明即可。
+- **桌宠美术素材**（原创角色「草系罗盘猫 verdant」的原画、图集、动画，及 `assets/pets_raster/`、`mons/`、`docs/pets/` 下图像）：[**CC BY 4.0**](./LICENSE-ASSETS.md) —— **可自由使用、修改、再分发（含商用），唯一条件是署名来源**：
+
+  > 桌宠素材「verdant」来自 agentmon（<https://github.com/xinyuehtx/agentmon>），依 CC BY 4.0 授权使用。
+
+- 在线图鉴：**<https://xinyuehtx.github.io/agentmon/pets.html>**（可预览全部动作动画）。
+- **第三方素材（DyberPet / BongoCat / 各类同人模型等）不入库、不随发布分发**：其多为 GPL-3.0（传染性 copyleft）或受版权保护的 IP，自行添加「仅自用」声明并不能为他人 IP 重新授权。若自行导入第三方素材到本机 `custom_pet/` 使用，请自行遵循其各自授权，切勿随本项目提交/分发。
 

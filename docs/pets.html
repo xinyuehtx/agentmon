@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>agentmon 桌宠图鉴 · verdant</title>
+<style>
+  :root { --bg:#f2f8f4; --card:#fff; --fg:#20342a; --muted:#5b7266; --line:#dcebe1; --accent:#3f9d6a; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,"SF Pro Text","PingFang SC",system-ui,sans-serif;
+    background:linear-gradient(180deg,#eef7f0,#e3f1e8 60%,#dbeee2); color:var(--fg); line-height:1.6; }
+  header { text-align:center; padding:56px 20px 12px; }
+  header h1 { margin:0 0 8px; font-size:30px; }
+  header p { margin:0; color:var(--muted); font-size:16px; }
+  header .meta { margin-top:14px; font-size:13px; color:var(--muted); }
+  header a { color:var(--accent); text-decoration:none; }
+  main { max-width:1080px; margin:0 auto; padding:20px 20px 60px; }
+  .stage { margin:34px 0 8px; }
+  .stage h2 { font-size:22px; margin:0 0 16px; padding-left:12px; border-left:4px solid var(--accent); }
+  .stage h2 .lv { color:var(--accent); font-size:15px; font-weight:600; margin-left:6px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px; }
+  .card { margin:0; background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:14px 8px 10px; text-align:center; box-shadow:0 1px 3px rgba(30,80,50,.05);
+    transition:transform .15s ease, box-shadow .15s ease; }
+  .card:hover { transform:translateY(-3px); box-shadow:0 6px 18px rgba(30,80,50,.12); }
+  .stage-img { display:flex; align-items:center; justify-content:center; }
+  .stage-img img { image-rendering:auto; max-width:100%; height:100%; object-fit:contain; }
+  figcaption { margin-top:8px; font-size:14px; color:var(--muted); }
+  footer { text-align:center; color:var(--muted); font-size:13px; padding:8px 20px 56px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🐱 agentmon 桌宠图鉴</h1>
+  <p>原创角色「verdant」· grass 系 · 4 形态进化 · 32 段动作动画</p>
+  <p class="meta">随工作状态积累能量、升级即进化：蛋 → 幼体 → 少年 → 成熟 &nbsp;·&nbsp; <a href="./index.html">← 返回首页</a></p>
+</header>
+<main>
+  <section class="stage">
+    <h2>蛋 <span class="lv">Lv0</span></h2>
+    <div class="grid">
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/egg-idle.webp" width="116" height="120" alt="发呆" loading="lazy"/></div><figcaption>发呆</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/egg-working.webp" width="93" height="120" alt="干活" loading="lazy"/></div><figcaption>干活</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/egg-waiting.webp" width="99" height="120" alt="等待" loading="lazy"/></div><figcaption>等待</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/egg-complete.webp" width="96" height="120" alt="完成" loading="lazy"/></div><figcaption>完成</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/egg-evolve.webp" width="113" height="120" alt="进化" loading="lazy"/></div><figcaption>进化</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/egg-hungry.webp" width="114" height="120" alt="饿了" loading="lazy"/></div><figcaption>饿了</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/egg-jump.webp" width="120" height="120" alt="跳跃" loading="lazy"/></div><figcaption>跳跃</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/egg-skill.webp" width="120" height="120" alt="技能" loading="lazy"/></div><figcaption>技能</figcaption></figure>
+    </div>
+  </section>
+  <section class="stage">
+    <h2>幼体 <span class="lv">Lv1</span></h2>
+    <div class="grid">
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/baby-idle.webp" width="99" height="120" alt="发呆" loading="lazy"/></div><figcaption>发呆</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/baby-working.webp" width="126" height="120" alt="干活" loading="lazy"/></div><figcaption>干活</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/baby-waiting.webp" width="96" height="120" alt="等待" loading="lazy"/></div><figcaption>等待</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/baby-complete.webp" width="94" height="120" alt="完成" loading="lazy"/></div><figcaption>完成</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/baby-evolve.webp" width="123" height="120" alt="进化" loading="lazy"/></div><figcaption>进化</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/baby-hungry.webp" width="130" height="120" alt="饿了" loading="lazy"/></div><figcaption>饿了</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/baby-jump.webp" width="106" height="120" alt="跳跃" loading="lazy"/></div><figcaption>跳跃</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/baby-skill.webp" width="108" height="120" alt="技能" loading="lazy"/></div><figcaption>技能</figcaption></figure>
+    </div>
+  </section>
+  <section class="stage">
+    <h2>少年 <span class="lv">Lv2</span></h2>
+    <div class="grid">
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/youth-idle.webp" width="108" height="120" alt="发呆" loading="lazy"/></div><figcaption>发呆</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/youth-working.webp" width="207" height="120" alt="干活" loading="lazy"/></div><figcaption>干活</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/youth-waiting.webp" width="84" height="120" alt="等待" loading="lazy"/></div><figcaption>等待</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/youth-complete.webp" width="120" height="120" alt="完成" loading="lazy"/></div><figcaption>完成</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/youth-evolve.webp" width="138" height="120" alt="进化" loading="lazy"/></div><figcaption>进化</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/youth-hungry.webp" width="120" height="120" alt="饿了" loading="lazy"/></div><figcaption>饿了</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/youth-jump.webp" width="142" height="120" alt="跳跃" loading="lazy"/></div><figcaption>跳跃</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/youth-skill.webp" width="120" height="120" alt="技能" loading="lazy"/></div><figcaption>技能</figcaption></figure>
+    </div>
+  </section>
+  <section class="stage">
+    <h2>成熟 <span class="lv">Lv3</span></h2>
+    <div class="grid">
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/mature-idle.webp" width="121" height="120" alt="发呆" loading="lazy"/></div><figcaption>发呆</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/mature-working.webp" width="100" height="120" alt="干活" loading="lazy"/></div><figcaption>干活</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/mature-waiting.webp" width="119" height="120" alt="等待" loading="lazy"/></div><figcaption>等待</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/mature-complete.webp" width="120" height="120" alt="完成" loading="lazy"/></div><figcaption>完成</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/mature-evolve.webp" width="126" height="120" alt="进化" loading="lazy"/></div><figcaption>进化</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/mature-hungry.webp" width="83" height="120" alt="饿了" loading="lazy"/></div><figcaption>饿了</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/mature-jump.webp" width="120" height="120" alt="跳跃" loading="lazy"/></div><figcaption>跳跃</figcaption></figure>
+      <figure class="card"><div class="stage-img" style="height:120px"><img src="pets/mature-skill.webp" width="120" height="120" alt="技能" loading="lazy"/></div><figcaption>技能</figcaption></figure>
+    </div>
+  </section>
+</main>
+<footer>全部为作者原创素材（AI 生成视频经 <code>scripts/video_to_pack.py</code> 制作），非任何既有 IP。<br/>
+素材依 <a href="https://github.com/xinyuehtx/agentmon/blob/main/LICENSE-ASSETS.md">CC BY 4.0</a> 授权：可自由使用/修改/再分发，需署名「agentmon（github.com/xinyuehtx/agentmon）」。&nbsp;·&nbsp; <a href="./index.html">返回首页</a></footer>
+</body>
+</html>
