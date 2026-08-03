@@ -7,8 +7,8 @@ public struct EnergyConfig: Codable, Equatable {
     public var completedBonus: Double  // 每次完成一次性加成
     public var idleDecayPerMin: Double  // 无任务时 / 分钟（通常为负）
     public var thresholds: [Double]  // thresholds[i] = 从 level (i+1) 升到 (i+2) 所需能量
-    /// 毕业封顶等级：level 到达此值即封顶（成长停止、解锁永久皮肤）。
-    /// 默认 5 = stage 四档(egg/juvenile/mature/final) 后再攒满一档能量。
+    /// 毕业封顶等级：level 到达此值即封顶（成长停止=最终形态）。
+    /// 默认 4 = 引擎 level 1..4 → 显示 Lv0..Lv3（蛋/幼年/青年/成熟，见 PetProgression）。
     public var graduationLevel: Int
     /// 饥饿死亡阈值：能量归零后持续空闲累计分钟达此值即「饿死」重生。默认 4320 = 3 天。
     public var starveDeathMinutes: Double
@@ -19,7 +19,7 @@ public struct EnergyConfig: Codable, Equatable {
         completedBonus: Double,
         idleDecayPerMin: Double,
         thresholds: [Double],
-        graduationLevel: Int = 5,
+        graduationLevel: Int = 4,
         starveDeathMinutes: Double = 4320
     ) {
         self.workingPerMin = workingPerMin
@@ -40,7 +40,7 @@ public struct EnergyConfig: Codable, Equatable {
         completedBonus = try c.decode(Double.self, forKey: .completedBonus)
         idleDecayPerMin = try c.decode(Double.self, forKey: .idleDecayPerMin)
         thresholds = try c.decode([Double].self, forKey: .thresholds)
-        graduationLevel = try c.decodeIfPresent(Int.self, forKey: .graduationLevel) ?? 5
+        graduationLevel = try c.decodeIfPresent(Int.self, forKey: .graduationLevel) ?? 4
         starveDeathMinutes = try c.decodeIfPresent(Double.self, forKey: .starveDeathMinutes) ?? 4320
     }
 
@@ -49,6 +49,6 @@ public struct EnergyConfig: Codable, Equatable {
         waitingPerMin: -1,
         completedBonus: 30,
         idleDecayPerMin: -0.5,
-        thresholds: [300, 900, 2000]
+        thresholds: [100, 250, 500]  // Lv0→1→2→3（蛋→幼年→青年→成熟），累计≈850，约 3 天活跃到成熟
     )
 }

@@ -111,7 +111,7 @@ public struct EnergyConfig: Codable, Equatable {
     public var waitingPerMin: Double    // 默认 -1   （每个等待中任务/分钟）
     public var completedBonus: Double   // 默认 +30  （每次完成一次性）
     public var idleDecayPerMin: Double  // 默认 -0.5 （无任务时/分钟）
-    public var thresholds: [Double]     // 默认 [300, 900, 2000]
+    public var thresholds: [Double]     // 默认 [50, 120, 220, 380, 560]（Lv0→…→Lv5，约 3 天满级）
     public static let `default`: EnergyConfig
 }
 ```
@@ -332,6 +332,16 @@ public final class StateStore {
 - **单角色**「极光罗盘猫」，8 套动作动画（rest/sleep/run/jump/skill-attack/cheer/hungry/happy，米白底原始帧）+ **12 元素静态立绘**（水/草/火/风/电/冰/幽灵/超能/岩石/光/暗/彩虹）作为可收藏皮肤（替换旧「3 物种×4 阶段」）。
 - 流水线 `scripts/process-aurora.py`：抠米白底 → 公共 bbox 裁剪缩放 → **自纠正光流补帧**（4×→2×→原帧，按重影度回退）→ 横排透明条 + `manifest.json`(schemaVersion 2)；元素立绘取设定板规整 512×512 方格（尺寸一致）。
 - **资产门禁** `tests/integration/AssetIntegrityTests.swift`（进 CI）：结构/几何/立绘尺寸一致/帧非空/补帧重影（半透明占比中位数 ≤ 0.33）。
+
+### 8.4 等级 Lv0–Lv5：每级解锁更多动作（`PetProgression`）
+- 引擎 `level` 1..6 → 显示 `Lv0..Lv5`（`PetProgression.displayLevel`）；能量门槛 6 档、封顶 6（毕业解锁元素收藏）。
+- **升级 = 解锁更多随机表现动作**（仿 DyberPet `random_act`）：核心状态反应 idle/working/waiting/complete/hungry 恒可用；随等级解锁 Lv1 跳跃 → Lv2 开心 → Lv3 技能 → Lv4 撒花。空闲时按等级冷却（越高级越频繁）随机播放一次表现动作（`PetState.ambientAction` + `AppDelegate.scheduleAmbient`）。
+- 体型/光环随 `growth`（level/graduationLevel 推导）作次要点缀。控制台「桌宠设置」显示 Lv0–5、随机动作、下一级解锁。
+
+### 8.5 本地自定义图集（不随发布分发）
+- App 加载优先级：`AGENTMON_PETS_RASTER`（测试/开发）→ `~/Library/Application Support/agentmon/custom_pet/`（用户本地导入）→ 随包原创 → 开发目录（`RasterPetStore.load`）。
+- `scripts/import-dyberpet.py`（原创代码）把 DyberPet 角色（`act_conf.json` + `action/*.png`）转成本方 manifest v2 输出到 `custom_pet/`，供**本地**使用。
+- **合规**：第三方素材（DyberPet 为 GPL-3.0，且可能含 IP）只在本地 `custom_pet/` 使用，**永不进仓库/发布包**；仓库与 Release 保持 100% 原创（极光猫）。删除 `custom_pet/` 即恢复原创。
 
 ## 9. 日志与「埋点」（本地，不上传）
 - 用 `os.Logger`（subsystem `com.agentmon`）：categories `adapter`/`engine`/`ui`/`persistence`。

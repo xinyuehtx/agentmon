@@ -30,6 +30,8 @@ public struct MonitorSnapshot: Equatable {
     public let isGraduated: Bool
     /// 已解锁的永久皮肤物种列表。
     public let graduated: [String]
+    /// 曾拥有但饿死的物种（图鉴置灰）。
+    public let diedSpecies: [String]
 }
 
 /// 一条最近活动（用于控制台活动流）。契约见 rfcs/multi-client-and-control-panel.md §4.4。
@@ -71,6 +73,8 @@ public final class MonitorCoordinator {
     public var availableSpecies: [String] = []
     /// 已毕业解锁的永久皮肤物种。
     public private(set) var graduated: [String] = []
+    /// 曾拥有但饿死的物种（图鉴置灰用）；毕业后从此列移除。
+    public private(set) var diedSpecies: [String] = []
     /// 当前展示的收藏皮肤物种；nil = 展示活跃宠物。
     public private(set) var displaySkin: String?
     /// 展示皮肤时选定的形态；nil = final。
@@ -107,16 +111,19 @@ public final class MonitorCoordinator {
     private func handleGraduate() {
         guard let species = species else { return }
         if !graduated.contains(species) { graduated.append(species) }
+        diedSpecies.removeAll { $0 == species }  // 毕业即"复活"，从死亡列移除
         AgentmonLog.shared.info("pet", "毕业 → 解锁永久皮肤 \(species)")
         onGraduate?(species)
     }
 
-    /// 恢复持久化的生命周期状态（毕业收藏 / 展示皮肤 / 当前物种）。
+    /// 恢复持久化的生命周期状态（毕业收藏 / 死亡记录 / 展示皮肤 / 当前物种）。
     public func restoreLifecycle(
-        species: String?, graduated: [String], displaySkin: String?, displayStage: String?
+        species: String?, graduated: [String], diedSpecies: [String] = [],
+        displaySkin: String?, displayStage: String?
     ) {
         self.species = species
         self.graduated = graduated
+        self.diedSpecies = diedSpecies.filter { !graduated.contains($0) }
         // 展示皮肤仅在物种确实已毕业时才生效，否则回落活跃宠物。
         if let skin = displaySkin, graduated.contains(skin) {
             self.displaySkin = skin
@@ -225,6 +232,9 @@ public final class MonitorCoordinator {
         if pendingStarve {
             pendingStarve = false
             let old = species
+            if let old = old, !graduated.contains(old), !diedSpecies.contains(old) {
+                diedSpecies.append(old)  // 记录死亡（图鉴置灰）
+            }
             hatchNewPet(now: now)
             AgentmonLog.shared.info("pet", "饿死重生 \(old ?? "?") → \(species ?? "?")")
             onDeath?(old ?? "")
@@ -259,7 +269,8 @@ public final class MonitorCoordinator {
             displayStage: shownStage,
             isSkinMode: isSkinMode,
             isGraduated: engine.isGraduated,
-            graduated: graduated
+            graduated: graduated,
+            diedSpecies: diedSpecies
         )
     }
 
@@ -274,6 +285,7 @@ public final class MonitorCoordinator {
             starveMinutes: engine.starveMinutes,
             graduated: graduated,
             displaySkin: displaySkin,
-            displayStage: displayStage)
+            displayStage: displayStage,
+            diedSpecies: diedSpecies)
     }
 }

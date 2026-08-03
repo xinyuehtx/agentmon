@@ -18,6 +18,8 @@ public enum AgentmonPaths {
     public static var logFile: URL { appSupport.appendingPathComponent("agentmon.log") }
     public static var diagnosticsFile: URL { appSupport.appendingPathComponent("diagnostics.txt") }
     public static var appSettingsFile: URL { appSupport.appendingPathComponent("app-settings.json") }
+    /// 本地自定义宠物图集目录（用户本地导入的第三方素材放此处；不随仓库/发布分发）。
+    public static var customPet: URL { appSupport.appendingPathComponent("custom_pet", isDirectory: true) }
 
     /// 按 env 覆盖优先、否则家目录默认，解析一个客户端配置路径。
     private static func homePath(env: String, default relative: String) -> URL {

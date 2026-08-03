@@ -84,12 +84,14 @@ private struct DashboardView: View {
     private var energyCard: some View {
         CardSection(title: model.isSkinMode ? "宠物（展示收藏 · 成长已暂停）" : "宠物") {
             HStack {
+                let cap = PetProgression.maxLevel
+                let form = model.stages.isEmpty ? "" : " · \(PetProgression.stageName(model.currentStage))"
                 if model.isSkinMode {
                     Text("展示：\(PetNaming.species(model.displaySpecies))")
                 } else if model.isGraduated {
-                    Text("Lv\(model.level)   已毕业 ✓ 可孵化新宠物")
+                    Text("Lv\(model.displayLevel)/\(cap)\(form)   已满级 ✓")
                 } else {
-                    Text("Lv\(model.level)")
+                    Text("Lv\(model.displayLevel)/\(cap)\(form)")
                     ProgressView(value: min(model.energy, model.energyToNext), total: max(1, model.energyToNext))
                         .frame(maxWidth: 240)
                     Text("\(Int(model.energy))/\(Int(model.energyToNext))")
@@ -263,6 +265,12 @@ private struct PetSettingsView: View {
         Set(model.graduated + [model.activeElement])
     }
 
+    private func cellState(_ id: String) -> ElementCellState {
+        if unlocked.contains(id) { return .owned }
+        if model.diedElements.contains(id) { return .dead }
+        return .unowned
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("桌宠设置").font(.title2).bold()
@@ -273,35 +281,80 @@ private struct PetSettingsView: View {
                     isOn: Binding(get: { model.petVisible }, set: { model.onTogglePet?($0) }))
             }
 
-            CardSection(title: "极光罗盘猫") {
+            CardSection(title: "宠物状态") {
                 HStack {
                     Text(statusLine)
                     Spacer()
-                    if model.isSkinMode {
+                    if model.elements.isEmpty {
+                        // 多形态包（verdant）：无元素/收藏机制
+                    } else if model.isSkinMode {
                         Button("显示当前宠物") { model.onShowActive?() }
                     }
-                    Button("孵化新宠物…") { model.onHatch?() }
+                    if !model.elements.isEmpty {
+                        Button("孵化新宠物…") { model.onHatch?() }
+                    }
+                }
+                Text(
+                    model.unlockedActions.isEmpty
+                        ? "随机动作：暂无（升级解锁；核心反应始终可用）"
+                        : "随机动作：" + model.unlockedActions.joined(separator: "、")
+                )
+                .font(.caption).foregroundStyle(.secondary)
+                if let next = model.nextUnlock {
+                    Text("下一级解锁：\(next)").font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text("已满级：全部动作解锁").font(.caption).foregroundStyle(.secondary)
                 }
             }
 
-            CardSection(title: "元素图鉴（\(unlocked.count)/\(model.elements.count)）") {
-                Text("完成任务养成、毕业即解锁新元素；点击已解锁元素切换展示。")
-                    .font(.caption).foregroundStyle(.secondary)
-                LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10
-                ) {
-                    ForEach(model.elements) { e in
-                        ElementCell(
-                            element: e,
-                            isUnlocked: unlocked.contains(e.id),
-                            isCurrent: e.id == model.displaySpecies,
-                            onTap: {
-                                if e.id == model.activeElement {
-                                    model.onShowActive?()
-                                } else {
-                                    model.onShowSkin?(e.id)
+            if !model.stages.isEmpty {
+                // 多形态包（verdant）：成长形态进度
+                CardSection(title: "成长形态") {
+                    Text("随等级进化：升级即变为下一形态。")
+                        .font(.caption).foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        ForEach(Array(model.stages.enumerated()), id: \.offset) { idx, st in
+                            let isCur = st == model.currentStage
+                            let reached = idx <= (model.stages.firstIndex(of: model.currentStage) ?? 0)
+                            HStack(spacing: 4) {
+                                Text(PetProgression.stageName(st))
+                                    .font(.caption).bold(isCur)
+                                    .padding(.horizontal, 8).padding(.vertical, 4)
+                                    .background(
+                                        Capsule().fill(
+                                            isCur
+                                                ? Color.green.opacity(0.3)
+                                                : Color.primary.opacity(reached ? 0.1 : 0.04))
+                                    )
+                                    .foregroundStyle(reached ? .primary : .secondary)
+                                if idx < model.stages.count - 1 {
+                                    Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.secondary)
                                 }
-                            })
+                            }
+                        }
+                    }
+                }
+            } else if !model.elements.isEmpty {
+                // 单形态元素包（aurora）：元素图鉴收藏
+                CardSection(title: "元素图鉴（\(unlocked.count)/\(model.elements.count)）") {
+                    Text("完成任务养成、毕业即解锁新元素；点击已解锁元素切换展示。")
+                        .font(.caption).foregroundStyle(.secondary)
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10
+                    ) {
+                        ForEach(model.elements) { e in
+                            ElementCell(
+                                element: e,
+                                state: cellState(e.id),
+                                isCurrent: e.id == model.displaySpecies,
+                                onTap: {
+                                    if e.id == model.activeElement {
+                                        model.onShowActive?()
+                                    } else {
+                                        model.onShowSkin?(e.id)
+                                    }
+                                })
+                        }
                     }
                 }
             }
@@ -311,10 +364,17 @@ private struct PetSettingsView: View {
     }
 
     private var statusLine: String {
+        let max = PetProgression.maxLevel
+        if !model.stages.isEmpty {
+            // 多形态包（verdant）：等级=形态
+            let form = PetProgression.stageName(model.currentStage)
+            let cap = model.isGraduated ? " · 已成熟 ✓" : ""
+            return "Lv\(model.displayLevel)/\(max) · \(form)\(cap)"
+        }
         let name = PetNaming.species(model.displaySpecies)
         if model.isSkinMode { return "展示收藏：\(name)" }
-        if model.isGraduated { return "当前：\(name) · Lv\(model.level) · 成年 ✓ 已毕业" }
-        return "当前：\(name) · Lv\(model.level) · \(growthStage)"
+        if model.isGraduated { return "当前：\(name) · Lv\(model.displayLevel)/\(max) · 满级 ✓" }
+        return "当前：\(name) · Lv\(model.displayLevel)/\(max) · \(growthStage)"
     }
 
     private var growthStage: String {
@@ -324,12 +384,17 @@ private struct PetSettingsView: View {
     }
 }
 
-/// 图鉴单元格：立绘缩略 + 名称；已解锁彩色可点，未解锁灰显。
+/// 图鉴单元格三态：已拥有(可点切换) / 已饿死(置灰) / 未拥有(? 占位)。
+private enum ElementCellState { case owned, dead, unowned }
+
+/// 图鉴单元格：立绘缩略 + 名称，按三态渲染。
 private struct ElementCell: View {
     let element: PetElementInfo
-    let isUnlocked: Bool
+    let state: ElementCellState
     let isCurrent: Bool
     let onTap: () -> Void
+
+    private var owned: Bool { state == .owned }
 
     var body: some View {
         VStack(spacing: 4) {
@@ -337,29 +402,59 @@ private struct ElementCell: View {
                 .frame(width: 64, height: 64)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(isUnlocked ? Color(white: 0.92) : Color.primary.opacity(0.05))
+                        .fill(owned ? Color(white: 0.92) : Color.primary.opacity(0.06))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(isCurrent ? tintColor : tintColor.opacity(0.35), lineWidth: isCurrent ? 2.5 : 1))
-            Text(element.name).font(.caption2)
-                .foregroundStyle(isUnlocked ? .primary : .secondary)
+                        .strokeBorder(borderColor, lineWidth: isCurrent ? 2.5 : 1))
+            Text(label).font(.caption2).foregroundStyle(owned ? .primary : .secondary)
         }
-        .opacity(isUnlocked ? 1 : 0.45)
+        .opacity(owned ? 1 : (state == .dead ? 0.5 : 0.4))
         .contentShape(Rectangle())
-        .onTapGesture { if isUnlocked { onTap() } }
-        .help(isUnlocked ? element.name : "\(element.name)（未解锁）")
+        .onTapGesture { if owned { onTap() } }
+        .help(helpText)
     }
 
     @ViewBuilder private var portrait: some View {
-        if let img = NSImage(contentsOfFile: element.portraitPath) {
-            Image(nsImage: img).resizable().scaledToFit().padding(4)
-                .saturation(isUnlocked ? 1 : 0).opacity(isUnlocked ? 1 : 0.6)
-        } else {
-            Image(systemName: "pawprint.fill").foregroundStyle(tintColor)
+        switch state {
+        case .owned:
+            if let img = NSImage(contentsOfFile: element.portraitPath) {
+                Image(nsImage: img).resizable().scaledToFit().padding(4)
+            } else {
+                Image(systemName: "pawprint.fill").foregroundStyle(tintColor)
+            }
+        case .dead:
+            if let img = NSImage(contentsOfFile: element.portraitPath) {
+                Image(nsImage: img).resizable().scaledToFit().padding(4).saturation(0).opacity(0.55)
+            } else {
+                Image(systemName: "xmark").foregroundStyle(.secondary)
+            }
+        case .unowned:
+            Image(systemName: "questionmark").font(.title2).foregroundStyle(.secondary)
         }
     }
 
+    private var borderColor: Color {
+        switch state {
+        case .owned: return isCurrent ? tintColor : tintColor.opacity(0.35)
+        case .dead: return Color.gray.opacity(0.4)
+        case .unowned: return Color.gray.opacity(0.25)
+        }
+    }
+    private var label: String {
+        switch state {
+        case .owned: return element.name
+        case .dead: return element.name + "·亡"
+        case .unowned: return "？"
+        }
+    }
+    private var helpText: String {
+        switch state {
+        case .owned: return element.name
+        case .dead: return "\(element.name)（已饿死）"
+        case .unowned: return "未拥有"
+        }
+    }
     private var tintColor: Color { Color(hex: element.tint) ?? .accentColor }
 }
 

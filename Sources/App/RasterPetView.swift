@@ -14,25 +14,45 @@ final class RasterPetStore {
         self.baseDir = baseDir
     }
 
+    /// 随包默认桌宠包（相对 pets_raster/）。verdant = 草系 4 形态进化。
+    static let defaultPack = "packs/verdant"
+
     static func load() -> RasterPetStore? {
         func store(_ url: URL) -> RasterPetStore? {
             guard let m = try? RasterLibrary.load(from: url) else { return nil }
             return RasterPetStore(manifest: m, baseDir: url.deletingLastPathComponent())
         }
-        if let url = Bundle.main.url(forResource: "manifest", withExtension: "json", subdirectory: "pets_raster"),
-            let s = store(url)
-        {
-            return s
-        }
+        // 1) 测试/开发显式覆盖
         if let path = ProcessInfo.processInfo.environment["AGENTMON_PETS_RASTER"],
             let s = store(URL(fileURLWithPath: path))
         {
             return s
         }
+        // 2) 本地自定义包（用户本地导入的素材，优先于随包默认；不随发布分发）
+        let custom = AgentmonPaths.customPet.appendingPathComponent("manifest.json")
+        if FileManager.default.fileExists(atPath: custom.path), let s = store(custom) {
+            return s
+        }
+        // 3) 随包默认包 verdant
+        if let url = Bundle.main.url(
+            forResource: "manifest", withExtension: "json", subdirectory: "pets_raster/\(defaultPack)"),
+            let s = store(url)
+        {
+            return s
+        }
+        // 4) 随包顶层图集（aurora 遗留兼容）
+        if let url = Bundle.main.url(forResource: "manifest", withExtension: "json", subdirectory: "pets_raster"),
+            let s = store(url)
+        {
+            return s
+        }
+        // 5) 开发目录：优先默认包，回落顶层
         if let exe = Bundle.main.executableURL {
-            let dev = exe.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-                .appendingPathComponent("assets/pets_raster/manifest.json")
-            if let s = store(dev) { return s }
+            let root = exe.deletingLastPathComponent().deletingLastPathComponent()
+                .deletingLastPathComponent().appendingPathComponent("assets/pets_raster")
+            for rel in ["\(defaultPack)/manifest.json", "manifest.json"] {
+                if let s = store(root.appendingPathComponent(rel)) { return s }
+            }
         }
         return nil
     }
@@ -68,16 +88,31 @@ struct RasterPetView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            TimelineView(.animation) { timeline in
-                Canvas { ctx, size in render(ctx, size: size, at: timeline.date) }
-                    .frame(width: 132, height: 132)
-                    .accessibilityIdentifier("pet.canvas")
+            ZStack(alignment: .topTrailing) {
+                TimelineView(.animation) { timeline in
+                    Canvas { ctx, size in render(ctx, size: size, at: timeline.date) }
+                        .frame(width: 132, height: 132)
+                        .accessibilityIdentifier("pet.canvas")
+                }
+                // 右上角等级角标
+                Text(state.isSkin ? "收藏" : "Lv\(PetProgression.displayLevel(engineLevel: state.level))")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Color.black.opacity(0.45)))
+                    .foregroundStyle(.white)
+                    .padding(6)
+                    .accessibilityIdentifier("pet.levelBadge")
             }
             VStack(spacing: 3) {
-                Text(state.isSkin ? "收藏 · \(moodText)" : "Lv\(state.level) · \(moodText)")
-                    .font(.system(size: 11, weight: .semibold))
-                    .accessibilityIdentifier("pet.state")
-                    .accessibilityValue("\(moodRaw):\(state.level)")
+                Text(
+                    state.isSkin
+                        ? "收藏 · \(moodText)"
+                        : "Lv\(PetProgression.displayLevel(engineLevel: state.level)) · \(moodText)"
+                )
+                .font(.system(size: 11, weight: .semibold))
+                .accessibilityIdentifier("pet.state")
+                .accessibilityValue("\(moodRaw):\(state.level)")
                 HStack(spacing: 12) {
                     Text("▶\(state.working)")
                     Text("⏸\(state.waiting)")
@@ -95,14 +130,26 @@ struct RasterPetView: View {
 
     private func render(_ ctx: GraphicsContext, size: CGSize, at date: Date) {
         let m = store.manifest
-        let key = actionKey(state.mood)
-        guard let action = m.action(key) ?? m.action("idle") ?? m.actions.values.first else { return }
+        let acts = m.actions(forStage: state.stage)  // v3 按当前成长形态取动作；v2 回落顶层
+        // 空闲时叠加的一次性表现动作：在其时长内播它，播完自动回落 mood 动作。
+        var key = actionKey(state.mood)
+        var oneShot = key == "complete" || key == "evolve"
+        var start = state.variantStart
+        if let amb = state.ambientAction, let a = acts[amb] {
+            let dur = Double(a.frames) / Double(max(1, a.fps))
+            if date.timeIntervalSince(state.ambientStart) < dur {
+                key = amb
+                oneShot = true
+                start = state.ambientStart
+            }
+        }
+        guard let action = acts[key] ?? acts["idle"] ?? acts.values.first else { return }
         let frames = store.frames(action)
         guard !frames.isEmpty else { return }
 
         let n = frames.count
-        let loop = key != "complete" && key != "evolve"  // 完成/进化为一次性演出
-        let elapsed = max(0, date.timeIntervalSince(state.variantStart))
+        let loop = !oneShot  // 完成/进化/表现动作为一次性演出
+        let elapsed = max(0, date.timeIntervalSince(start))
         let cycle = Double(n) / Double(max(1, action.fps))  // 一轮秒数
         // 连续帧位置（用于交叉溶解补帧，播放更顺滑）
         let u: Double =

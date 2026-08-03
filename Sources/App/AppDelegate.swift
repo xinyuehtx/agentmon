@@ -16,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lastCompleted = 0
     private var lastStateKey = ""
     private var lastStage = ""
+    /// 下一次随机表现动作的最早触发时刻（空闲时按等级冷却调度）。
+    private var nextAmbientAt = Date.distantPast
 
     private let stateStore = StateStore(
         stateURL: AgentmonPaths.stateFile,
@@ -103,6 +105,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let restoredGraduated = (loaded?.graduated ?? []).filter { activeIDs.contains($0) }
         coordinator.restoreLifecycle(
             species: resolvedSpecies, graduated: restoredGraduated,
+            diedSpecies: (loaded?.diedSpecies ?? []).filter { activeIDs.contains($0) },
             displaySkin: loaded?.displaySkin, displayStage: loaded?.displayStage)
         petState.species = resolvedSpecies
         lastCompleted = (loaded?.completedByClient.values.reduce(0, +)) ?? 0
@@ -198,7 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         petState.waiting = snap.totalWaiting
         petState.completed = snap.totalCompleted
         petState.species = snap.displaySpecies
-        petState.stage = snap.displayStage
+        petState.stage = currentStageID(snap) ?? snap.displayStage
         petState.isSkin = snap.isSkinMode
         petState.growth = growthValue(snap)
         if snap.totalCompleted > lastCompleted {
@@ -210,7 +213,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         lastCompleted = snap.totalCompleted
         refreshVariant()
+        scheduleAmbient(snap)
         feedDashboard(snap)
+    }
+
+    /// 随机表现动作调度（仿 DyberPet random_act）：仅空闲时，按等级解锁池与冷却随机播放一次。
+    private func scheduleAmbient(_ snap: MonitorSnapshot) {
+        guard petState.mood == .idle, !snap.isSkinMode else {
+            petState.ambientAction = nil
+            nextAmbientAt = Date().addingTimeInterval(4)  // 离开空闲后稍等再触发
+            return
+        }
+        let lv = PetProgression.displayLevel(engineLevel: snap.level)
+        let pool = PetProgression.ambientActions(displayLevel: lv)
+        guard !pool.isEmpty else { return }
+        let now = Date()
+        guard now >= nextAmbientAt else { return }
+        var rng = SystemRandomNumberGenerator()
+        guard let pick = pool.randomElement(using: &rng) else { return }
+        petState.ambientAction = pick
+        petState.ambientStart = now
+        let dur = actionDuration(pick)
+        let cooldown = PetProgression.ambientCooldown(displayLevel: lv)
+        nextAmbientAt = now.addingTimeInterval(dur + cooldown + Double.random(in: 0...4, using: &rng))
+    }
+
+    /// 当前成长形态 id（v3 多形态包：等级→形态 1:1）；无 stages（aurora）返回 nil。
+    private func currentStageID(_ snap: MonitorSnapshot) -> String? {
+        guard let ids = rasterStore?.manifest.stageIDs, !ids.isEmpty else { return nil }
+        let lv = PetProgression.displayLevel(engineLevel: snap.level)
+        return ids[PetProgression.stageIndex(displayLevel: lv, stageCount: ids.count)]
+    }
+
+    /// 某动作一轮播放时长（秒），取自当前形态的动作条。
+    private func actionDuration(_ key: String) -> Double {
+        guard let m = rasterStore?.manifest, let a = m.actions(forStage: petState.stage)[key] else {
+            return 1.0
+        }
+        return Double(a.frames) / Double(max(1, a.fps))
     }
 
     /// 由快照推导常驻情绪：工作 > 等待 > （空闲且能量为 0 → 饿了）> 发呆。
@@ -221,8 +261,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return .idle
     }
 
-    /// 成长度 0..1：等级从 1 长到毕业门槛。展示收藏/已毕业视为成年（1.0）。
+    /// 成长度 0..1（驱动桌宠体型/光环）。
+    /// v3 多形态包：形态本身表达成长 → 恒 1.0（不再缩放，避免与换形态叠加）。
+    /// v2 单形态包（aurora）：仍按等级从 0.55 长到成年。
     private func growthValue(_ snap: MonitorSnapshot) -> Double {
+        if !(rasterStore?.manifest.stageIDs.isEmpty ?? true) { return 1.0 }  // 有 stages → 不缩放
         if snap.isSkinMode || snap.isGraduated { return 1.0 }
         let g = Double(coordinator.engine.config.graduationLevel)
         let t = g > 1 ? Double(snap.level - 1) / (g - 1) : 1
@@ -240,6 +283,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         appModel.energyToNext = coordinator.engine.threshold(forLevel: snap.level)
         appModel.isGraduated = snap.isGraduated
         appModel.growth = growthValue(snap)
+        let lv = PetProgression.displayLevel(engineLevel: snap.level)
+        appModel.displayLevel = lv
+        appModel.unlockedActions = PetProgression.ambientActions(displayLevel: lv).map(PetProgression.actionName)
+        appModel.nextUnlock = PetProgression.nextUnlock(displayLevel: lv).map(PetProgression.actionName)
         appModel.clients = snap.clients
         appModel.sessions = coordinator.store.sessionRows()
         appModel.activity = coordinator.recentActivity(limit: 50)
@@ -249,7 +296,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         appModel.displayStage = snap.displayStage
         appModel.isSkinMode = snap.isSkinMode
         appModel.graduated = snap.graduated
+        appModel.diedElements = snap.diedSpecies
         appModel.activeElement = coordinator.species ?? ""
+        appModel.stages = rasterStore?.manifest.stageIDs ?? []
+        appModel.currentStage = currentStageID(snap) ?? ""
     }
 
     /// mood → 状态键（idle/working/waiting/complete/hungry）。

@@ -18,12 +18,15 @@ public struct PersistentState: Codable, Equatable {
     public var displaySkin: String?
     /// 展示皮肤时选定的形态（egg/juvenile/mature/final）；nil = final。
     public var displayStage: String?
+    /// 曾拥有但饿死的物种 id 列表（图鉴置灰）；旧文件为 nil → []。
+    public var diedSpecies: [String]?
 
     public init(
         energy: Double, level: Int, completedByClient: [String: Int], lastTick: Date,
         completedDay: String? = nil, species: String? = nil,
         starveMinutes: Double? = nil, graduated: [String]? = nil,
-        displaySkin: String? = nil, displayStage: String? = nil
+        displaySkin: String? = nil, displayStage: String? = nil,
+        diedSpecies: [String]? = nil
     ) {
         self.energy = energy
         self.level = level
@@ -35,6 +38,7 @@ public struct PersistentState: Codable, Equatable {
         self.graduated = graduated
         self.displaySkin = displaySkin
         self.displayStage = displayStage
+        self.diedSpecies = diedSpecies
     }
 }
 

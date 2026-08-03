@@ -18,6 +18,10 @@ final class PetState: ObservableObject {
     @Published var isSkin: Bool = false
     /// 成长度 0..1（幼年→成年），由等级/毕业门槛推导，驱动桌宠体型与光环。
     @Published var growth: Double = 1.0
+    /// 空闲时叠加的一次性「随机表现动作」键（解锁越多越活泼）；nil = 只播 mood 动作。
+    @Published var ambientAction: String? = nil
+    /// 当前 ambient 动作的播放起点。
+    @Published var ambientStart: Date = Date()
     /// 当前动作动画的播放起点（状态/阶段变化时重置；用于循环与一次性 complete 计时）。
     @Published var variantStart: Date = Date()
 }

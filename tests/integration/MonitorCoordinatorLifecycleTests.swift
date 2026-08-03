@@ -61,12 +61,14 @@ final class MonitorCoordinatorLifecycleTests: XCTestCase {
     }
 
     func testGraduationUnlocksSkinAndFreezes() {
-        let coord = makeCoord(energy: 3990, level: 4)
+        // 默认 Lv0–Lv3：graduationLevel=4，threshold(forLevel:3)=500 → level 3 攒满即毕业(成熟)
+        let coord = makeCoord(energy: 470, level: 3)
         coord.restoreLifecycle(species: "a", graduated: [], displaySkin: nil, displayStage: nil)
         var graduatedSpecies: String?
         coord.onGraduate = { graduatedSpecies = $0 }
 
-        coord.engine.registerCompletions(1, now: at(1))  // 3990+30 >= 4000 → 毕业
+        coord.engine.registerCompletions(1, now: at(1))  // 470+30 >= 500 → level 4 毕业
+        XCTAssertEqual(coord.engine.level, 4)
         XCTAssertEqual(coord.graduated, ["a"])
         XCTAssertEqual(graduatedSpecies, "a")
         XCTAssertTrue(coord.snapshot().isGraduated)

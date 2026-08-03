@@ -125,6 +125,44 @@ final class AssetIntegrityTests: XCTestCase {
         }
     }
 
+    /// 抠图掉帧门禁：视频转包时若抠图过狠（如全屏特效帧把主体也抠掉），
+    /// 该帧不透明面积会骤降 → 播放时闪烁/掉帧。扫描 packs/ 下每个动作条，
+    /// 任一帧内容面积 < 该动作中位数的 25% 即判失败。覆盖 v2 单形态与 v3 多形态包。
+    func testPackFramesNoDropout() throws {
+        let packsDir = baseDir.appendingPathComponent("packs")
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: packsDir.path) else {
+            return  // 无 packs/ 目录时跳过（仅 aurora 主包）
+        }
+        for pack in names.sorted() {
+            let dir = packsDir.appendingPathComponent(pack)
+            let mf = dir.appendingPathComponent("manifest.json")
+            guard FileManager.default.fileExists(atPath: mf.path),
+                let m = try? RasterLibrary.load(from: mf)
+            else { continue }
+            // 收集 (标签, 动作)：v3 各形态 + v2 顶层
+            var jobs: [(String, RasterAction)] = []
+            for s in m.stages ?? [] {
+                for (k, a) in s.actions { jobs.append(("\(pack)/\(s.stage)/\(k)", a)) }
+            }
+            for (k, a) in m.actions { jobs.append(("\(pack)/\(k)", a)) }
+
+            for (label, a) in jobs {
+                let url = dir.appendingPathComponent(a.file)
+                guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+                    let strip = CGImageSourceCreateImageAtIndex(src, 0, nil)
+                else { return XCTFail("无法加载 \(a.file)") }
+                let areas = sliceFrames(strip, count: a.frames).map { Double(alphaStats($0).content) }
+                guard !areas.isEmpty else { continue }
+                let med = median(areas)
+                guard med > 0 else { return XCTFail("\(label) 全空") }
+                let minA = areas.min() ?? 0
+                XCTAssertGreaterThanOrEqual(
+                    minA, 0.25 * med,
+                    "\(label) 疑似抠图掉帧：最小帧内容 \(Int(minA)) < 中位数 \(Int(med)) 的 25%")
+            }
+        }
+    }
+
     /// 补帧重影门禁：大位移动作若强行光流插帧会糊成半透明叠影（不同姿态叠在一起）。
     func testNoInterpolationGhosting() throws {
         let m = try manifest()

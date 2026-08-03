@@ -10,10 +10,16 @@ final class EnergyEngineTests: XCTestCase {
     /// t0 之后 `minutes` 分钟的时刻
     private func at(_ minutes: Double) -> Date { t0.addingTimeInterval(minutes * 60) }
 
+    /// 引擎机制测试用固定 config（与默认值解耦：默认门槛/封顶已改为 Lv0–Lv5 6 档，
+    /// 这些用例只验证引擎数学，故用显式已知门槛 [300,900,2000]/封顶 5）。
+    private static let testConfig = EnergyConfig(
+        workingPerMin: 2, waitingPerMin: -1, completedBonus: 30, idleDecayPerMin: -0.5,
+        thresholds: [300, 900, 2000], graduationLevel: 5)
+
     private func makeEngine(
         energy: Double = 0,
         level: Int = 1,
-        config: EnergyConfig = .default
+        config: EnergyConfig = EnergyEngineTests.testConfig
     ) -> EnergyEngine {
         EnergyEngine(config: config, energy: energy, level: level, lastTick: t0)
     }
@@ -187,5 +193,11 @@ final class EnergyEngineTests: XCTestCase {
         XCTAssertEqual(e.energy, 100, accuracy: 1e-6)
         e.tick(now: at(1000), workingCount: 0, waitingCount: 0)  // elapsed=0
         XCTAssertEqual(e.energy, 100, accuracy: 1e-6)
+    }
+
+    func testDefaultConfigIsFourTierLv0to3() {
+        // 默认 Lv0–Lv3（蛋/幼年/青年/成熟）：封顶 4、3 档门槛（累计约 3 天到成熟）
+        XCTAssertEqual(EnergyConfig.default.graduationLevel, 4)
+        XCTAssertEqual(EnergyConfig.default.thresholds, [100, 250, 500])
     }
 }

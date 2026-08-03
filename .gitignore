@@ -51,3 +51,6 @@ playwright-report/
 
 # Python
 __pycache__/
+
+# 原始素材源（视频/关键帧，体积大；用 scripts/ 生成 assets/pets_raster/packs/<mon>，勿入库）
+/mons/

@@ -15,6 +15,12 @@ final class AppModel: ObservableObject {
     @Published var energyToNext = 300.0
     @Published var isGraduated = false
     @Published var growth = 1.0  // 0..1 幼年→成年
+    @Published var displayLevel = 0  // Lv0..maxLevel
+    @Published var unlockedActions: [String] = []  // 已解锁表现动作（中文名）
+    @Published var nextUnlock: String?  // 下一级解锁的表现动作（中文名）；nil=已满级
+    /// 成长形态（v3 多形态包）：形态 id 列表 + 当前形态；空=单形态包（aurora）。
+    @Published var stages: [String] = []
+    @Published var currentStage: String = ""
     @Published var clients: [ClientSummary] = []
     @Published var sessions: [SessionRow] = []
     @Published var activity: [ActivityItem] = []
@@ -26,6 +32,7 @@ final class AppModel: ObservableObject {
     @Published var displayStage = ""
     @Published var isSkinMode = false
     @Published var graduated: [String] = []
+    @Published var diedElements: [String] = []  // 曾拥有但饿死（图鉴置灰）
     @Published var petVisible = true
     /// 全部 12 元素（图鉴）；`activeElement` 为当前活体宠物元素。
     @Published var elements: [PetElementInfo] = []

@@ -29,8 +29,9 @@ agentmon 监控本地已安装的 Agent 客户端（Claude Code、Qoder、qoderw
 
 - **菜单栏**：猫图标 + `▶工作中 ⏸等待中 ✓已完成`（总数）；点开选「打开控制台…」进入详细面板。
 - **控制台**：仪表盘（各客户端计数 / 会话看板 / 活动流 / 能量等级）· 监控设置（逐客户端开关、可编辑路径、诊断/日志、能量参数）· 桌宠设置（显示隐藏、孵化、收藏皮肤）。
-- **桌面宠物**：随状态播放**原创手绘图集动画**（idle/工作/等待/完成，逐帧透明精灵，交叉溶解补帧、30fps+ 平滑播放）；**右键 →「隐藏宠物」**，之后从菜单栏「显示宠物」重开；可拖动。三只原创精灵（草/火/水）× 四阶段（蛋/幼年/成熟/完全），每次安装随机分到一只（卸载重装重掷）。图鉴 [`docs/pet-sprites.png`](./docs/pet-sprites.png)，动画预览 [`docs/pet-preview.html`](./docs/pet-preview.html)。
-  - 接新素材：按 [`docs/pet-art-prompt.md`](./docs/pet-art-prompt.md) 为每个动作生成一组**独立帧序列**（`<species>_<stage>_<action>_NN.png`，洋红底单只主体）→ `swift scripts/process-packs.swift <源目录>`（分组/抠底/公共对齐/拼条）→ `assets/pets_raster/`。流水线**增量**运行：只更新处理成功的动作，多主体拼图/异常过宽的帧会被跳过并保留旧素材。
+- **桌面宠物**：**极光罗盘猫**随状态播放逐帧动画（发呆/干活/等待/完成/进化/饿了，透明精灵，光流补帧平滑播放）；**右键 →「隐藏宠物」**，之后从控制台「桌宠设置」重开；可拖动。**等级 Lv0–Lv5，每升一级解锁更多随机动作**（跳跃/开心/技能/撒花，越高级越活泼）；体型/光环随等级成长。12 元素（水/草/火/风/电/冰/幽灵/超能/岩石/光/暗/彩虹）毕业收藏。图鉴 [`docs/pet-sprites.png`](./docs/pet-sprites.png)，动画预览 [`docs/pet-preview.html`](./docs/pet-preview.html)。
+  - 接新素材：按 [`docs/pet-art-prompt.md`](./docs/pet-art-prompt.md) 生成每动作 6+ 帧 → `python3 scripts/process-aurora.py <源目录>`（抠底/对齐/光流补帧/拼条）→ `assets/pets_raster/`。
+  - **本地自定义桌宠**（不随发布分发）：`python3 scripts/import-dyberpet.py <DyberPet 角色目录>` 转换到 `~/Library/Application Support/agentmon/custom_pet/`，App 会优先加载；删除该目录恢复原创。⚠️ 第三方素材仅本地使用（注意 GPL/版权），仓库与 Release 保持 100% 原创。
 - **能量/进化**：见下方「能量玩法」。
 
 ## 故障排查 / 诊断
@@ -79,4 +80,21 @@ tests/unit/      单元测试     tests/integration/  集成测试     tests/e2e
 | 完成任务 | `+30`（一次性） |
 | 无任务 | `−0.5 / 分钟` |
 
-能量累计跨过门槛（默认 Lv2=300 / Lv3=900 / Lv4=2000）触发进化换肤；等级单调不回退。数值见 `config.json`（`~/Library/Application Support/agentmon/`）。
+能量累计跨过门槛触发升级（默认 5 档 `[50,120,220,380,560]`，约 3 天活跃即可从 **Lv0** 升到满级 **Lv5**）；**每升一级解锁更多随机动作**（跳跃/开心/技能/撒花）。等级单生命内单调不回退。数值见 `config.json`（`~/Library/Application Support/agentmon/`）。
+
+## 友情链接
+
+- [DyberPet（呆啵宠物）](https://github.com/ChaozhongLiu/DyberPet) —— PySide6 桌宠框架（GPL-3.0），本项目桌宠等级/动作解锁玩法参考其设计。
+- [virtualpet](https://github.com/xiaokaimengshen/virtualpet) —— 基于 DyberPet 的桌宠。
+- [Awesome-BongoCat](https://github.com/ayangweb/Awesome-BongoCat) —— BongoCat 第三方模型合集（Live2D）。
+
+## 版权与素材合法性
+
+- **本仓库与发布包仅含原创素材**（极光罗盘猫：8 动作 + 12 元素立绘），可自由分发。
+- **第三方素材（DyberPet / BongoCat 等）不入库、不随发布分发**。原因：
+  - DyberPet 为 **GPL-3.0**（传染性 copyleft），且其内置角色（如「派蒙」）多为**受版权保护的 IP**；
+  - Awesome-BongoCat 收录的多为原神 / 英雄联盟 / 动漫等**受版权保护角色的同人模型**，且**无授权**；
+  - 自行添加「GPL / 仅自用非商用」声明**不能**为他人 IP 重新授权，也不能使**公开分发**合法。
+- **本地使用（合规）**：可用 `scripts/import-dyberpet.py <DyberPet 角色目录>` 把**自行下载**的素材转换到 `~/Library/Application Support/agentmon/custom_pet/`，App 会优先加载，供**个人本地使用**；删除该目录即恢复原创。此路径下素材**只在你本机**，不进入本仓库/发布包。
+- 若需将第三方素材与代码一起版本管理，请改用**私有仓库**（非公开分发），再自行遵循相应授权（如 GPL-3.0 的署名与源码义务）。
+- BongoCat 为 **Live2D** 模型，与本项目逐帧渲染不兼容，无法直接使用。

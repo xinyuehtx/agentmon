@@ -61,7 +61,7 @@ final class PetPersistenceTests: XCTestCase {
         let cfg = try JSONDecoder().decode(EnergyConfig.self, from: data)
         XCTAssertEqual(cfg.workingPerMin, 5)
         XCTAssertEqual(cfg.thresholds, [100, 200])
-        XCTAssertEqual(cfg.graduationLevel, 5)
+        XCTAssertEqual(cfg.graduationLevel, 4)  // 缺字段 → 新默认（Lv0–Lv3 四档封顶）
         XCTAssertEqual(cfg.starveDeathMinutes, 4320)
     }
 }
