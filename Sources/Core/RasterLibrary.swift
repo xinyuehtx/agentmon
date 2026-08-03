@@ -1,7 +1,8 @@
 import Foundation
 
-/// 光栅精灵图集清单（对应 assets/pets_raster/manifest.json，由 scripts/process-aurora.py 生成）。
-/// v2：单角色（极光罗盘猫）共享一套动作动画（每动作一张横排透明「条」）+ 12 元素静态立绘收藏。
+/// 光栅精灵图集清单（对应 assets/pets_raster/packs/<mon>/manifest.json，由 scripts/video_to_pack.py 生成）。
+/// v2：单形态，一套动作动画（每动作一张横排透明「条」）+ 可选元素立绘；
+/// v3：多形态（`stages:[{stage,actions}]`），按等级进化切换形态（如草系罗盘猫 verdant 的蛋/幼体/少年/成熟）。
 
 public struct RasterAction: Codable, Equatable {
     public var file: String  // 相对 manifest 目录

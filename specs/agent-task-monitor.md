@@ -328,20 +328,21 @@ public final class StateStore {
 - **展示层由快照的 `displaySpecies/isSkinMode` 驱动**：收藏模式下播通用动画、面板显示所选元素立绘与名称（成长暂停）。
 - 互动：拖动移动；右键「隐藏宠物」。菜单细节见 §8.1（已移入控制台）。
 
-### 8.3 美术资源（v2：极光罗盘猫）
-- **单角色**「极光罗盘猫」，8 套动作动画（rest/sleep/run/jump/skill-attack/cheer/hungry/happy，米白底原始帧）+ **12 元素静态立绘**（水/草/火/风/电/冰/幽灵/超能/岩石/光/暗/彩虹）作为可收藏皮肤（替换旧「3 物种×4 阶段」）。
-- 流水线 `scripts/process-aurora.py`：抠米白底 → 公共 bbox 裁剪缩放 → **自纠正光流补帧**（4×→2×→原帧，按重影度回退）→ 横排透明条 + `manifest.json`(schemaVersion 2)；元素立绘取设定板规整 512×512 方格（尺寸一致）。
-- **资产门禁** `tests/integration/AssetIntegrityTests.swift`（进 CI）：结构/几何/立绘尺寸一致/帧非空/补帧重影（半透明占比中位数 ≤ 0.33）。
+### 8.3 美术资源（v3：草系罗盘猫 verdant）
+- **单角色多形态**「草系罗盘猫 verdant」，**4 形态**（egg 蛋 / baby 幼体 / youth 少年 / mature 成熟）× 8 套动作动画（idle/working/waiting/complete/evolve/hungry/jump/skill，作者原创 AI 视频，白底原始帧）。每形态每动作一张横排透明「条」，帧高 160、约 1.5s/动作。
+- 流水线 `scripts/video_to_pack.py`（`--mon-dir mons/<mon>` 多形态；venv：imageio/ffmpeg/pillow/numpy/scipy/rembg）：抽帧 → **逐帧混合抠图**（rembg 语义抠图 → 掉帧则回退**饱和度感知四角泛洪**保全屏彩色特效主体 → 仍不行用最近好帧顶替）→ 去左上角字母残留 → 公共 bbox 裁剪缩放 → 横排透明条 + `manifest.json`(schemaVersion 3，含 `stages`)。分类辅助 `scripts/classify_videos.py`；预览 `scripts/preview-packs.py`。素材流程沉淀于 skill `.claude/skills/pet-material-pipeline`。
+- **资产门禁** `tests/integration/AssetIntegrityTests.swift`（进 CI）：结构（v3/character/4 形态齐备必需动作）/几何（宽=frames×fw、高=fh=frameHeight）/帧非空/**抠图掉帧**（任一帧内容面积 ≥ 该动作中位数 25%，扫描 packs/ 全部包）/补帧重影（半透明占比中位数 ≤ 0.33）。
 
-### 8.4 等级 Lv0–Lv5：每级解锁更多动作（`PetProgression`）
-- 引擎 `level` 1..6 → 显示 `Lv0..Lv5`（`PetProgression.displayLevel`）；能量门槛 6 档、封顶 6（毕业解锁元素收藏）。
-- **升级 = 解锁更多随机表现动作**（仿 DyberPet `random_act`）：核心状态反应 idle/working/waiting/complete/hungry 恒可用；随等级解锁 Lv1 跳跃 → Lv2 开心 → Lv3 技能 → Lv4 撒花。空闲时按等级冷却（越高级越频繁）随机播放一次表现动作（`PetState.ambientAction` + `AppDelegate.scheduleAmbient`）。
-- 体型/光环随 `growth`（level/graduationLevel 推导）作次要点缀。控制台「桌宠设置」显示 Lv0–5、随机动作、下一级解锁。
+### 8.4 等级 Lv0–Lv3：等级即形态、升级即进化（`PetProgression`）
+- 引擎 `level` 1..4 → 显示 `Lv0..Lv3`（`PetProgression.displayLevel`）；能量门槛 3 档 `[100,250,500]`、`graduationLevel=4`（Lv3 成熟=封顶/最终）。
+- **等级 ↔ 形态 1:1**（`stageIndex(displayLevel:)`）：Lv0=蛋 → Lv1=幼体 → Lv2=少年 → Lv3=成熟，升级即切换 manifest 形态（`stageIDs`）。
+- **升级同时解锁更多随机表现动作**：核心状态反应 idle/working/waiting/complete/hungry 恒可用；随等级解锁 Lv1 跳跃 → Lv2 技能 → Lv3 撒花（complete）。空闲时按等级冷却（越高级越频繁）随机播放一次表现动作（`PetState.ambientAction` + `AppDelegate.scheduleAmbient`）。
+- 有 stages 时形态本身表达成长（`growth=1.0` 不再缩放）。控制台「桌宠设置」显示成长形态进度（4 档当前高亮）+ Lv/能量 + 下一级解锁。
 
 ### 8.5 本地自定义图集（不随发布分发）
-- App 加载优先级：`AGENTMON_PETS_RASTER`（测试/开发）→ `~/Library/Application Support/agentmon/custom_pet/`（用户本地导入）→ 随包原创 → 开发目录（`RasterPetStore.load`）。
-- `scripts/import-dyberpet.py`（原创代码）把 DyberPet 角色（`act_conf.json` + `action/*.png`）转成本方 manifest v2 输出到 `custom_pet/`，供**本地**使用。
-- **合规**：第三方素材（DyberPet 为 GPL-3.0，且可能含 IP）只在本地 `custom_pet/` 使用，**永不进仓库/发布包**；仓库与 Release 保持 100% 原创（极光猫）。删除 `custom_pet/` 即恢复原创。
+- App 加载优先级：`AGENTMON_PETS_RASTER`（测试/开发）→ `~/Library/Application Support/agentmon/custom_pet/`（用户本地导入）→ 随包默认 `pets_raster/packs/verdant` → 开发目录（`RasterPetStore.load`）。
+- 把任意图集包（原创或自制）放到 `custom_pet/` 即可本地覆盖默认桌宠；删除即恢复随包原创。
+- **合规**：第三方素材（如 GPL-3.0 或含受版权保护 IP 者）只在本地 `custom_pet/` 使用，**永不进仓库/发布包**；仓库与 Release 保持 100% 原创（verdant）。
 
 ## 9. 日志与「埋点」（本地，不上传）
 - 用 `os.Logger`（subsystem `com.agentmon`）：categories `adapter`/`engine`/`ui`/`persistence`。

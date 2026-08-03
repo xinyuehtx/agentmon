@@ -40,19 +40,11 @@ final class RasterPetStore {
         {
             return s
         }
-        // 4) 随包顶层图集（aurora 遗留兼容）
-        if let url = Bundle.main.url(forResource: "manifest", withExtension: "json", subdirectory: "pets_raster"),
-            let s = store(url)
-        {
-            return s
-        }
-        // 5) 开发目录：优先默认包，回落顶层
+        // 4) 开发目录：随包默认包
         if let exe = Bundle.main.executableURL {
             let root = exe.deletingLastPathComponent().deletingLastPathComponent()
                 .deletingLastPathComponent().appendingPathComponent("assets/pets_raster")
-            for rel in ["\(defaultPack)/manifest.json", "manifest.json"] {
-                if let s = store(root.appendingPathComponent(rel)) { return s }
-            }
+            if let s = store(root.appendingPathComponent("\(defaultPack)/manifest.json")) { return s }
         }
         return nil
     }

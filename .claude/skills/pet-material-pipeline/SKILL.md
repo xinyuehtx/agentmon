@@ -95,4 +95,3 @@ open "~/Library/Application Support/agentmon/pet-preview-all.html"   # 多形态
 ## 相关文件
 - `scripts/classify_videos.py` · `scripts/video_to_pack.py` · `scripts/preview-packs.py`
 - `Sources/Core/RasterLibrary.swift`（manifest v2/v3 结构）
-- 参考旧管线：`scripts/process-aurora.py`（帧序列+光流补帧）、`scripts/import-dyberpet.py`（DyberPet 角色）

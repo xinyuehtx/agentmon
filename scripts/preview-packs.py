@@ -4,7 +4,7 @@
 把每个动作条切帧、每个元素立绘一并 base64 内联进 HTML，双击即可离线查看全部动画。
 
 默认扫描：
-  assets/pets_raster              （随包原创极光猫）
+  assets/pets_raster/packs/*      （随包原创图集，如草系罗盘猫 verdant）
   ~/Library/Application Support/agentmon/custom_pet          （当前生效的本地包）
   ~/Library/Application Support/agentmon/_sources/preview/*  （已导入预览的本地包）
 
@@ -57,7 +57,11 @@ def load_pack(d):
 
 
 def main():
-    dirs = [os.path.join(os.getcwd(), "assets/pets_raster"), os.path.join(APP, "custom_pet")]
+    packs_root = os.path.join(os.getcwd(), "assets/pets_raster/packs")
+    dirs = [os.path.join(APP, "custom_pet")]
+    if os.path.isdir(packs_root):
+        dirs = [os.path.join(packs_root, x) for x in sorted(os.listdir(packs_root))
+                if os.path.isdir(os.path.join(packs_root, x))] + dirs
     prev = os.path.join(APP, "_sources", "preview")
     if os.path.isdir(prev):
         dirs += [os.path.join(prev, x) for x in sorted(os.listdir(prev))

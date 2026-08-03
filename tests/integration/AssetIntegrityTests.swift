@@ -4,25 +4,40 @@ import XCTest
 
 @testable import agentmonCore
 
-/// 桌宠图集「门禁」：结构 + 几何 + 立绘尺寸一致 + 帧非空 + 补帧重影检测。
-/// 目的：把「立绘尺寸不一致 / 丢帧 / 补帧重影(不同动作帧糊在一起)」这类问题挡在 CI。
+/// 桌宠图集「门禁」：结构 + 几何 + 帧非空 + 抠图掉帧 + 补帧重影检测。
+/// 目标：把「丢帧 / 错位切片 / 抠图过狠丢主体 / 补帧重影(不同动作帧糊在一起)」这类问题挡在 CI。
+/// 默认英雄包 verdant 为 v3 多形态（egg/baby/youth/mature × 8 动作），故按「每形态每动作」逐条校验。
 final class AssetIntegrityTests: XCTestCase {
 
-    private var baseDir: URL {
-        URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("assets/pets_raster")
+    /// 所有随包图集包根目录（packs/ 下每个子目录一个 v2/v3 包）。
+    private var packsDir: URL {
+        URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent("assets/pets_raster/packs")
     }
+    /// 默认英雄包。
+    private var verdantDir: URL { packsDir.appendingPathComponent("verdant") }
 
     /// 活体必需动作（渲染层会用到）。
     private let requiredActions = ["idle", "working", "waiting", "complete", "evolve", "hungry"]
     /// 补帧重影阈值：单动作「半透明像素占比」中位数不得超过此值（重影会产生大片半透明叠影）。
     private let ghostMedianLimit = 0.33
 
-    private func manifest() throws -> RasterManifest {
-        try RasterLibrary.load(from: baseDir.appendingPathComponent("manifest.json"))
+    private func manifest(_ dir: URL) throws -> RasterManifest {
+        try RasterLibrary.load(from: dir.appendingPathComponent("manifest.json"))
     }
 
-    private func loadCG(_ rel: String) -> CGImage? {
-        let url = baseDir.appendingPathComponent(rel)
+    /// 收集一个包内所有 (标签, 动作)：v3 各形态 + v2 顶层。
+    private func jobs(_ m: RasterManifest) -> [(String, RasterAction)] {
+        var out: [(String, RasterAction)] = []
+        for s in m.stages ?? [] {
+            for (k, a) in s.actions { out.append(("\(s.stage)/\(k)", a)) }
+        }
+        for (k, a) in m.actions { out.append((k, a)) }
+        return out
+    }
+
+    private func loadCG(_ dir: URL, _ rel: String) -> CGImage? {
+        let url = dir.appendingPathComponent(rel)
         guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         return CGImageSourceCreateImageAtIndex(src, 0, nil)
     }
@@ -69,58 +84,46 @@ final class AssetIntegrityTests: XCTestCase {
 
     // MARK: - 门禁
 
+    /// verdant 结构：v3 多形态、character 正确、每形态齐备必需动作、动作文件都存在。
     func testManifestStructureAndFiles() throws {
-        let m = try manifest()
-        XCTAssertEqual(m.schemaVersion, 2)
-        XCTAssertEqual(m.character, "aurora")
-        for key in requiredActions {
-            XCTAssertNotNil(m.action(key), "缺必需动作 \(key)")
+        let m = try manifest(verdantDir)
+        XCTAssertEqual(m.schemaVersion, 3)
+        XCTAssertEqual(m.character, "verdant")
+        let stages = m.stages ?? []
+        XCTAssertEqual(stages.count, 4, "verdant 应为 4 形态")
+        for s in stages {
+            for key in requiredActions {
+                XCTAssertNotNil(s.actions[key], "形态 \(s.stage) 缺必需动作 \(key)")
+            }
         }
-        for (_, a) in m.actions {
+        for (label, a) in jobs(m) {
             XCTAssertTrue(
-                FileManager.default.fileExists(atPath: baseDir.appendingPathComponent(a.file).path),
-                "缺动作文件 \(a.file)")
-        }
-        XCTAssertEqual(m.elements.count, 12)
-        for e in m.elements {
-            XCTAssertTrue(
-                FileManager.default.fileExists(atPath: baseDir.appendingPathComponent(e.portrait).path),
-                "缺立绘 \(e.portrait)")
+                FileManager.default.fileExists(atPath: verdantDir.appendingPathComponent(a.file).path),
+                "缺动作文件 \(label) → \(a.file)")
         }
     }
 
     /// 每条 strip 宽度 == frames×fw、高度 == fh == frameHeight（防丢帧/错位切片）。
     func testStripGeometry() throws {
-        let m = try manifest()
-        for (key, a) in m.actions {
-            guard let strip = loadCG(a.file) else { return XCTFail("无法加载 \(a.file)") }
-            XCTAssertEqual(strip.width, a.frames * a.fw, "\(key) 宽度与 frames×fw 不符")
-            XCTAssertEqual(strip.height, a.fh, "\(key) 高度与 fh 不符")
-            XCTAssertEqual(a.fh, m.frameHeight, "\(key) fh 与 frameHeight 不符")
+        let m = try manifest(verdantDir)
+        for (label, a) in jobs(m) {
+            guard let strip = loadCG(verdantDir, a.file) else { return XCTFail("无法加载 \(a.file)") }
+            XCTAssertEqual(strip.width, a.frames * a.fw, "\(label) 宽度与 frames×fw 不符")
+            XCTAssertEqual(strip.height, a.fh, "\(label) 高度与 fh 不符")
+            XCTAssertEqual(a.fh, m.frameHeight, "\(label) fh 与 frameHeight 不符")
         }
-    }
-
-    /// 12 张元素立绘尺寸必须完全一致（否则图鉴里大小不一）。
-    func testPortraitsUniformSize() throws {
-        let m = try manifest()
-        var dims: Set<String> = []
-        for e in m.elements {
-            guard let cg = loadCG(e.portrait) else { return XCTFail("无法加载 \(e.portrait)") }
-            dims.insert("\(cg.width)x\(cg.height)")
-        }
-        XCTAssertEqual(dims.count, 1, "元素立绘尺寸不一致：\(dims.sorted())")
     }
 
     /// 每帧都要有可见内容（防空白/丢帧）。
     func testNoEmptyFrames() throws {
-        let m = try manifest()
-        for (key, a) in m.actions {
-            guard let strip = loadCG(a.file) else { return XCTFail("无法加载 \(a.file)") }
+        let m = try manifest(verdantDir)
+        for (label, a) in jobs(m) {
+            guard let strip = loadCG(verdantDir, a.file) else { return XCTFail("无法加载 \(a.file)") }
             for (i, f) in sliceFrames(strip, count: a.frames).enumerated() {
                 let s = alphaStats(f)
                 let total = f.width * f.height
                 XCTAssertGreaterThan(
-                    Double(s.content) / Double(max(1, total)), 0.005, "\(key) 第 \(i) 帧几乎空白")
+                    Double(s.content) / Double(max(1, total)), 0.005, "\(label) 第 \(i) 帧几乎空白")
             }
         }
     }
@@ -129,9 +132,8 @@ final class AssetIntegrityTests: XCTestCase {
     /// 该帧不透明面积会骤降 → 播放时闪烁/掉帧。扫描 packs/ 下每个动作条，
     /// 任一帧内容面积 < 该动作中位数的 25% 即判失败。覆盖 v2 单形态与 v3 多形态包。
     func testPackFramesNoDropout() throws {
-        let packsDir = baseDir.appendingPathComponent("packs")
         guard let names = try? FileManager.default.contentsOfDirectory(atPath: packsDir.path) else {
-            return  // 无 packs/ 目录时跳过（仅 aurora 主包）
+            return XCTFail("缺 packs/ 目录")
         }
         for pack in names.sorted() {
             let dir = packsDir.appendingPathComponent(pack)
@@ -139,35 +141,25 @@ final class AssetIntegrityTests: XCTestCase {
             guard FileManager.default.fileExists(atPath: mf.path),
                 let m = try? RasterLibrary.load(from: mf)
             else { continue }
-            // 收集 (标签, 动作)：v3 各形态 + v2 顶层
-            var jobs: [(String, RasterAction)] = []
-            for s in m.stages ?? [] {
-                for (k, a) in s.actions { jobs.append(("\(pack)/\(s.stage)/\(k)", a)) }
-            }
-            for (k, a) in m.actions { jobs.append(("\(pack)/\(k)", a)) }
-
-            for (label, a) in jobs {
-                let url = dir.appendingPathComponent(a.file)
-                guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
-                    let strip = CGImageSourceCreateImageAtIndex(src, 0, nil)
-                else { return XCTFail("无法加载 \(a.file)") }
+            for (label, a) in jobs(m) {
+                guard let strip = loadCG(dir, a.file) else { return XCTFail("无法加载 \(a.file)") }
                 let areas = sliceFrames(strip, count: a.frames).map { Double(alphaStats($0).content) }
                 guard !areas.isEmpty else { continue }
                 let med = median(areas)
-                guard med > 0 else { return XCTFail("\(label) 全空") }
+                guard med > 0 else { return XCTFail("\(pack)/\(label) 全空") }
                 let minA = areas.min() ?? 0
                 XCTAssertGreaterThanOrEqual(
                     minA, 0.25 * med,
-                    "\(label) 疑似抠图掉帧：最小帧内容 \(Int(minA)) < 中位数 \(Int(med)) 的 25%")
+                    "\(pack)/\(label) 疑似抠图掉帧：最小帧内容 \(Int(minA)) < 中位数 \(Int(med)) 的 25%")
             }
         }
     }
 
     /// 补帧重影门禁：大位移动作若强行光流插帧会糊成半透明叠影（不同姿态叠在一起）。
     func testNoInterpolationGhosting() throws {
-        let m = try manifest()
-        for (key, a) in m.actions {
-            guard let strip = loadCG(a.file) else { return XCTFail("无法加载 \(a.file)") }
+        let m = try manifest(verdantDir)
+        for (label, a) in jobs(m) {
+            guard let strip = loadCG(verdantDir, a.file) else { return XCTFail("无法加载 \(a.file)") }
             let fracs = sliceFrames(strip, count: a.frames).map { f -> Double in
                 let s = alphaStats(f)
                 return s.content > 0 ? Double(s.partial) / Double(s.content) : 0
@@ -175,7 +167,7 @@ final class AssetIntegrityTests: XCTestCase {
             let med = median(fracs)
             XCTAssertLessThanOrEqual(
                 med, ghostMedianLimit,
-                "动作 \(key) 疑似补帧重影：半透明占比中位数 \(String(format: "%.3f", med)) > \(ghostMedianLimit)")
+                "动作 \(label) 疑似补帧重影：半透明占比中位数 \(String(format: "%.3f", med)) > \(ghostMedianLimit)")
         }
     }
 }
