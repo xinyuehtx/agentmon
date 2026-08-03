@@ -37,8 +37,9 @@ ACTION_ALIASES = {
     "idle": "idle", "working": "working", "waiting": "waiting", "complete": "complete",
     "evolve": "evolve", "skill": "skill",
 }
-CYCLE = {"working": 0.9, "waiting": 1.1, "complete": 1.2, "evolve": 1.2, "hungry": 1.3,
-         "jump": 0.8, "skill": 0.9, "idle": 1.4}
+# 每个动作一轮播放时长（秒）。统一约 1.5s（可按需微调个别动作）。
+CYCLE = {"working": 1.5, "waiting": 1.6, "complete": 1.5, "evolve": 1.5, "hungry": 1.6,
+         "jump": 1.3, "skill": 1.5, "idle": 1.8}
 FRAME_H = 160
 
 _REMBG = None
@@ -60,13 +61,22 @@ def blank_topleft(im, wfrac, hfrac):
     return Image.fromarray(a)
 
 
-def remove_bg_corner(img, tol=26):
-    """四角边界连通泛洪抠底（纯色/近纯色背景，快）。不处理角色内部镂空。"""
+def remove_bg_corner(img, tol=28, sat_tol=16):
+    """四角边界连通泛洪抠底（启发式：只抠「与边界相连的近中性白背景」）。
+    关键：加**低饱和度**判据——仅当像素接近角落背景色 **且** 近中性（RGB 极差≤sat_tol）才算背景。
+    这样彩色主体/彩色特效（如绿色能量，极差大）即便很亮也会被保留，
+    解决 rembg 对「满屏彩色特效帧」误抠主体的问题；只清掉真正的平白背景。不处理内部镂空。"""
     im = img.convert("RGBA")
     w, h = im.size
     px = im.load()
     corners = [px[1, 1], px[w - 2, 1], px[1, h - 2], px[w - 2, h - 2]]
     bg = tuple(int(np.median([c[k] for c in corners])) for k in range(3))
+
+    def is_bg(p):
+        if abs(p[0] - bg[0]) > tol or abs(p[1] - bg[1]) > tol or abs(p[2] - bg[2]) > tol:
+            return False
+        return (max(p[0], p[1], p[2]) - min(p[0], p[1], p[2])) <= sat_tol  # 近中性才算背景
+
     seen = bytearray(w * h)
     q = deque([(x, 0) for x in range(w)] + [(x, h - 1) for x in range(w)]
               + [(0, y) for y in range(h)] + [(w - 1, y) for y in range(h)])
@@ -75,8 +85,7 @@ def remove_bg_corner(img, tol=26):
         if x < 0 or y < 0 or x >= w or y >= h or seen[y * w + x]:
             continue
         seen[y * w + x] = 1
-        p = px[x, y]
-        if abs(p[0] - bg[0]) <= tol and abs(p[1] - bg[1]) <= tol and abs(p[2] - bg[2]) <= tol:
+        if is_bg(px[x, y]):
             px[x, y] = (0, 0, 0, 0)
             q.extend([(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)])
     return im
@@ -223,7 +232,7 @@ def main():
     ap.add_argument("--out", required=True, help="输出包目录")
     ap.add_argument("--name", default=None, help="角色名（默认取目录名）")
     ap.add_argument("--element", default=None, help="属性（如 grass）")
-    ap.add_argument("--frames", type=int, default=24)
+    ap.add_argument("--frames", type=int, default=36)  # ~1.5s/动作 @ ~24fps，更顺滑
     ap.add_argument("--frame-h", type=int, default=FRAME_H)
     ap.add_argument("--bg", default="rembg", choices=["rembg", "corner", "none"])
     ap.add_argument("--tl-w", type=float, default=0.15, help="左上角字母区宽度占比")

@@ -10,58 +10,58 @@
         "complete": {
           "fh": 160,
           "file": "egg/anim/complete.png",
-          "fps": 20,
-          "frames": 24,
-          "fw": 138
+          "fps": 24,
+          "frames": 36,
+          "fw": 128
         },
         "evolve": {
           "fh": 160,
           "file": "egg/anim/evolve.png",
-          "fps": 20,
-          "frames": 24,
+          "fps": 24,
+          "frames": 36,
           "fw": 151
         },
         "hungry": {
           "fh": 160,
           "file": "egg/anim/hungry.png",
-          "fps": 18,
-          "frames": 24,
+          "fps": 22,
+          "frames": 36,
           "fw": 152
         },
         "idle": {
           "fh": 160,
           "file": "egg/anim/idle.png",
-          "fps": 17,
-          "frames": 24,
+          "fps": 20,
+          "frames": 36,
           "fw": 155
         },
         "jump": {
           "fh": 160,
           "file": "egg/anim/jump.png",
-          "fps": 30,
-          "frames": 24,
+          "fps": 28,
+          "frames": 36,
           "fw": 160
         },
         "skill": {
           "fh": 160,
           "file": "egg/anim/skill.png",
-          "fps": 27,
-          "frames": 24,
-          "fw": 156
+          "fps": 24,
+          "frames": 36,
+          "fw": 160
         },
         "waiting": {
           "fh": 160,
           "file": "egg/anim/waiting.png",
           "fps": 22,
-          "frames": 24,
+          "frames": 36,
           "fw": 133
         },
         "working": {
           "fh": 160,
           "file": "egg/anim/working.png",
-          "fps": 27,
-          "frames": 24,
-          "fw": 123
+          "fps": 24,
+          "frames": 36,
+          "fw": 124
         }
       },
       "stage": "egg"
@@ -71,58 +71,58 @@
         "complete": {
           "fh": 160,
           "file": "baby/anim/complete.png",
-          "fps": 20,
-          "frames": 24,
-          "fw": 122
+          "fps": 24,
+          "frames": 36,
+          "fw": 126
         },
         "evolve": {
           "fh": 160,
           "file": "baby/anim/evolve.png",
-          "fps": 20,
-          "frames": 24,
-          "fw": 166
+          "fps": 24,
+          "frames": 36,
+          "fw": 164
         },
         "hungry": {
           "fh": 160,
           "file": "baby/anim/hungry.png",
-          "fps": 18,
-          "frames": 24,
+          "fps": 22,
+          "frames": 36,
           "fw": 174
         },
         "idle": {
           "fh": 160,
           "file": "baby/anim/idle.png",
-          "fps": 17,
-          "frames": 24,
-          "fw": 133
+          "fps": 20,
+          "frames": 36,
+          "fw": 132
         },
         "jump": {
           "fh": 160,
           "file": "baby/anim/jump.png",
-          "fps": 30,
-          "frames": 24,
-          "fw": 141
+          "fps": 28,
+          "frames": 36,
+          "fw": 142
         },
         "skill": {
           "fh": 160,
           "file": "baby/anim/skill.png",
-          "fps": 27,
-          "frames": 24,
-          "fw": 166
+          "fps": 24,
+          "frames": 36,
+          "fw": 145
         },
         "waiting": {
           "fh": 160,
           "file": "baby/anim/waiting.png",
           "fps": 22,
-          "frames": 24,
-          "fw": 130
+          "frames": 36,
+          "fw": 128
         },
         "working": {
           "fh": 160,
           "file": "baby/anim/working.png",
-          "fps": 27,
-          "frames": 24,
-          "fw": 169
+          "fps": 24,
+          "frames": 36,
+          "fw": 168
         }
       },
       "stage": "baby"
@@ -132,58 +132,58 @@
         "complete": {
           "fh": 160,
           "file": "youth/anim/complete.png",
-          "fps": 20,
-          "frames": 24,
+          "fps": 24,
+          "frames": 36,
           "fw": 160
         },
         "evolve": {
           "fh": 160,
           "file": "youth/anim/evolve.png",
-          "fps": 20,
-          "frames": 24,
+          "fps": 24,
+          "frames": 36,
           "fw": 184
         },
         "hungry": {
           "fh": 160,
           "file": "youth/anim/hungry.png",
-          "fps": 18,
-          "frames": 24,
-          "fw": 159
+          "fps": 22,
+          "frames": 36,
+          "fw": 160
         },
         "idle": {
           "fh": 160,
           "file": "youth/anim/idle.png",
-          "fps": 17,
-          "frames": 24,
-          "fw": 141
+          "fps": 20,
+          "frames": 36,
+          "fw": 145
         },
         "jump": {
           "fh": 160,
           "file": "youth/anim/jump.png",
-          "fps": 30,
-          "frames": 24,
+          "fps": 28,
+          "frames": 36,
           "fw": 190
         },
         "skill": {
           "fh": 160,
           "file": "youth/anim/skill.png",
-          "fps": 27,
-          "frames": 24,
+          "fps": 24,
+          "frames": 36,
           "fw": 160
         },
         "waiting": {
           "fh": 160,
           "file": "youth/anim/waiting.png",
           "fps": 22,
-          "frames": 24,
-          "fw": 133
+          "frames": 36,
+          "fw": 112
         },
         "working": {
           "fh": 160,
           "file": "youth/anim/working.png",
-          "fps": 27,
-          "frames": 24,
-          "fw": 272
+          "fps": 24,
+          "frames": 36,
+          "fw": 276
         }
       },
       "stage": "youth"
@@ -193,58 +193,58 @@
         "complete": {
           "fh": 160,
           "file": "mature/anim/complete.png",
-          "fps": 20,
-          "frames": 24,
+          "fps": 24,
+          "frames": 36,
           "fw": 160
         },
         "evolve": {
           "fh": 160,
           "file": "mature/anim/evolve.png",
-          "fps": 20,
-          "frames": 24,
+          "fps": 24,
+          "frames": 36,
           "fw": 168
         },
         "hungry": {
           "fh": 160,
           "file": "mature/anim/hungry.png",
-          "fps": 18,
-          "frames": 24,
+          "fps": 22,
+          "frames": 36,
           "fw": 111
         },
         "idle": {
           "fh": 160,
           "file": "mature/anim/idle.png",
-          "fps": 17,
-          "frames": 24,
-          "fw": 161
+          "fps": 20,
+          "frames": 36,
+          "fw": 162
         },
         "jump": {
           "fh": 160,
           "file": "mature/anim/jump.png",
-          "fps": 30,
-          "frames": 24,
+          "fps": 28,
+          "frames": 36,
           "fw": 160
         },
         "skill": {
           "fh": 160,
           "file": "mature/anim/skill.png",
-          "fps": 27,
-          "frames": 24,
-          "fw": 166
+          "fps": 24,
+          "frames": 36,
+          "fw": 160
         },
         "waiting": {
           "fh": 160,
           "file": "mature/anim/waiting.png",
           "fps": 22,
-          "frames": 24,
-          "fw": 165
+          "frames": 36,
+          "fw": 159
         },
         "working": {
           "fh": 160,
           "file": "mature/anim/working.png",
-          "fps": 27,
-          "frames": 24,
-          "fw": 120
+          "fps": 24,
+          "frames": 36,
+          "fw": 134
         }
       },
       "stage": "mature"
