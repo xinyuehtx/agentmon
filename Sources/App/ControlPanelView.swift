@@ -87,7 +87,11 @@ private struct DashboardView: View {
                 let cap = PetProgression.maxLevel
                 let form = model.stages.isEmpty ? "" : " · \(PetProgression.stageName(model.currentStage))"
                 if model.isSkinMode {
-                    Text("展示：\(PetNaming.species(model.displaySpecies))")
+                    if model.stages.isEmpty {
+                        Text("展示：\(PetNaming.species(model.displaySpecies))")
+                    } else {
+                        Text("固定形态：\(PetProgression.stageName(model.currentStage))")
+                    }
                 } else if model.isGraduated {
                     Text("Lv\(model.displayLevel)/\(cap)\(form)   已满级 ✓")
                 } else {
@@ -308,10 +312,14 @@ private struct PetSettingsView: View {
             }
 
             if !model.stages.isEmpty {
-                // 多形态包（verdant）：成长形态进度
+                // 多形态包（verdant）：成长形态进度；满级后可固定任意成熟形态展示
                 CardSection(title: "成长形态") {
-                    Text("随等级进化：升级即变为下一形态。")
-                        .font(.caption).foregroundStyle(.secondary)
+                    Text(
+                        model.isGraduated
+                            ? "已满级：点选任一形态固定展示，能量永久冻结、不再消耗或增长。"
+                            : "随等级进化：升级即变为下一形态。满级后可固定成熟形态。"
+                    )
+                    .font(.caption).foregroundStyle(.secondary)
                     HStack(spacing: 8) {
                         ForEach(Array(model.stages.enumerated()), id: \.offset) { idx, st in
                             let isCur = st == model.currentStage
@@ -327,10 +335,26 @@ private struct PetSettingsView: View {
                                                 : Color.primary.opacity(reached ? 0.1 : 0.04))
                                     )
                                     .foregroundStyle(reached ? .primary : .secondary)
+                                    .contentShape(Capsule())
+                                    .onTapGesture {
+                                        if model.isGraduated { model.onSelectStage?(st) }
+                                    }
+                                    .help(model.isGraduated ? "固定为「\(PetProgression.stageName(st))」形态" : "")
                                 if idx < model.stages.count - 1 {
                                     Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.secondary)
                                 }
                             }
+                        }
+                    }
+                    if model.isGraduated {
+                        HStack {
+                            if model.isSkinMode {
+                                Text("已固定：\(PetProgression.stageName(model.currentStage))")
+                                    .font(.caption).foregroundStyle(.green)
+                            }
+                            Spacer()
+                            Button("恢复默认（成熟）") { model.onSelectStage?(nil) }
+                                .disabled(!model.isSkinMode)
                         }
                     }
                 }

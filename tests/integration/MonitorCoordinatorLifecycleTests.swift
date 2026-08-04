@@ -74,6 +74,34 @@ final class MonitorCoordinatorLifecycleTests: XCTestCase {
         XCTAssertTrue(coord.snapshot().isGraduated)
     }
 
+    func testPinDisplayStageRequiresGraduation() {
+        // 未毕业（level 2 < graduationLevel 4）→ 固定形态被忽略。
+        let coord = makeCoord(energy: 100, level: 2)
+        coord.restoreLifecycle(species: "a", graduated: [], displaySkin: nil, displayStage: nil)
+        XCTAssertFalse(coord.pinDisplayStage("youth"))
+        XCTAssertNil(coord.displaySkin)
+        XCTAssertFalse(coord.snapshot().isSkinMode)
+    }
+
+    func testPinDisplayStageOnGraduatedFreezesEnergy() {
+        // 毕业封顶（graduationLevel=4）→ 固定成熟形态并冻结能量。
+        let coord = makeCoord(energy: 470, level: 3)
+        coord.restoreLifecycle(species: "a", graduated: [], displaySkin: nil, displayStage: nil)
+        coord.engine.registerCompletions(1, now: at(1))  // → level 4 毕业，graduated=["a"]
+        XCTAssertTrue(coord.engine.isGraduated)
+
+        XCTAssertTrue(coord.pinDisplayStage("youth"))
+        let snap = coord.pump(now: at(1000))  // 空闲很久：皮肤态暂停 → 不衰减
+        XCTAssertTrue(snap.isSkinMode)
+        XCTAssertEqual(snap.displayStage, "youth")
+        XCTAssertEqual(coord.engine.energy, 0, accuracy: 1e-6)  // 毕业后本就冻结
+
+        // 取消固定 → 跟随成长（仍毕业，故不衰减，但退出皮肤态）。
+        XCTAssertTrue(coord.pinDisplayStage(nil))
+        XCTAssertFalse(coord.snapshot().isSkinMode)
+        XCTAssertNil(coord.displaySkin)
+    }
+
     func testStarvationTriggersRebirth() {
         let cfg = EnergyConfig(
             workingPerMin: 2, waitingPerMin: -1, completedBonus: 30, idleDecayPerMin: -0.5,

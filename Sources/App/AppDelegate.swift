@@ -123,6 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         appModel.onHatch = { [weak self] in self?.hatchNew() }
         appModel.onShowActive = { [weak self] in self?.showActive() }
         appModel.onShowSkin = { [weak self] element in self?.selectSkin(element: element) }
+        appModel.onSelectStage = { [weak self] stage in self?.selectStage(stage) }
         appModel.onRunDiagnostics = { [weak self] in self?.runDiagnostics() }
         appModel.onOpenLog = { [weak self] in self?.openLog() }
         panelController = ControlPanelWindowController(
@@ -239,8 +240,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// 当前成长形态 id（v3 多形态包：等级→形态 1:1）；无 stages（aurora）返回 nil。
+    /// 满级固定形态（皮肤态）时优先展示所选形态，否则按活跃等级推导。
     private func currentStageID(_ snap: MonitorSnapshot) -> String? {
         guard let ids = rasterStore?.manifest.stageIDs, !ids.isEmpty else { return nil }
+        if snap.isSkinMode, ids.contains(snap.displayStage) { return snap.displayStage }
         let lv = PetProgression.displayLevel(engineLevel: snap.level)
         return ids[PetProgression.stageIndex(displayLevel: lv, stageCount: ids.count)]
     }
@@ -327,8 +330,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         addAction(to: menu, title: "打开控制台…", action: #selector(openControlPanel))
+        let petVisible = petPanel?.isVisible ?? appSettings.petVisible
+        addAction(
+            to: menu, title: petVisible ? "隐藏桌面宠物" : "显示桌面宠物",
+            action: #selector(togglePetFromMenu))
         menu.addItem(.separator())
         addAction(to: menu, title: "退出 agentmon", action: #selector(quit), key: "q")
+    }
+
+    /// 菜单项：显示/隐藏桌面宠物（按当前可见性取反），并同步持久化与控制台。
+    @objc private func togglePetFromMenu() {
+        let visible = petPanel?.isVisible ?? appSettings.petVisible
+        setPetVisible(!visible)
     }
 
     private func addAction(to menu: NSMenu, title: String, action: Selector, key: String = "") {
@@ -462,6 +475,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func selectSkin(element: String) {
         coordinator.showSkin(element, stage: nil)
+        pump()
+    }
+
+    /// 满级宠物固定成熟形态（stage 非空）或恢复跟随成长（nil）；能量随皮肤态冻结。
+    private func selectStage(_ stage: String?) {
+        coordinator.pinDisplayStage(stage)
         pump()
     }
 

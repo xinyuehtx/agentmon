@@ -158,6 +158,22 @@ public final class MonitorCoordinator {
         displayStage = nil
     }
 
+    /// 将当前活跃宠物固定为指定成长/成熟形态展示；`stage == nil` 取消固定、跟随成长。
+    /// 仅在活跃宠物已毕业（满级）时生效——复用皮肤展示通道，故成长暂停、能量永久冻结。
+    /// 返回是否生效（未满级或无活跃物种时忽略）。
+    @discardableResult
+    public func pinDisplayStage(_ stage: String?) -> Bool {
+        guard let species = species, engine.isGraduated, graduated.contains(species) else { return false }
+        if let stage = stage {
+            displaySkin = species
+            displayStage = stage
+        } else {
+            displaySkin = nil
+            displayStage = nil
+        }
+        return true
+    }
+
     /// 本地日期字符串（YYYY-MM-DD），由入参 `date` + 系统时区决定，保持可测。
     public static func dayString(_ date: Date) -> String {
         var cal = Calendar(identifier: .gregorian)

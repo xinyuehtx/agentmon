@@ -51,6 +51,7 @@ final class AppModel: ObservableObject {
     var onHatch: (() -> Void)?
     var onShowActive: (() -> Void)?
     var onShowSkin: ((String) -> Void)?  // 展示某收藏元素
+    var onSelectStage: ((String?) -> Void)?  // 满级固定成熟形态；nil=跟随成长
     var onRunDiagnostics: (() -> Void)?
     var onOpenLog: (() -> Void)?
 }
