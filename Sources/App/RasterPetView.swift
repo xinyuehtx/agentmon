@@ -86,36 +86,32 @@ struct RasterPetView: View {
                         .frame(width: 132, height: 132)
                         .accessibilityIdentifier("pet.canvas")
                 }
-                // 右上角等级角标
-                Text(state.isSkin ? "收藏" : "Lv\(PetProgression.displayLevel(engineLevel: state.level))")
+                // 右上角等级角标（黑底白字保证任意壁纸下清晰）；兼作 pet.state 无障碍锚点。
+                Text("Lv\(PetProgression.displayLevel(engineLevel: state.level))")
                     .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .padding(.horizontal, 5)
+                    .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Capsule().fill(Color.black.opacity(0.45)))
+                    .background(Capsule().fill(Color.black.opacity(0.7)))
                     .foregroundStyle(.white)
                     .padding(6)
-                    .accessibilityIdentifier("pet.levelBadge")
+                    .accessibilityIdentifier("pet.state")
+                    .accessibilityValue("\(moodRaw):\(state.level)")
             }
-            VStack(spacing: 3) {
-                Text(
-                    state.isSkin
-                        ? "收藏 · \(moodText)"
-                        : "Lv\(PetProgression.displayLevel(engineLevel: state.level)) · \(moodText)"
-                )
-                .font(.system(size: 11, weight: .semibold))
-                .accessibilityIdentifier("pet.state")
-                .accessibilityValue("\(moodRaw):\(state.level)")
+            VStack(spacing: 4) {
                 HStack(spacing: 12) {
                     Text("▶\(state.working)")
                     Text("⏸\(state.waiting)")
                     Text("✓\(state.completed)")
                 }
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.white)
                 .accessibilityIdentifier("pet.stats")
                 .accessibilityValue("\(state.working):\(state.waiting):\(state.completed)")
                 energyBar
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.6)))
         }
         .padding(10)
         .contextMenu { Button("隐藏宠物", action: onHide) }
@@ -129,7 +125,7 @@ struct RasterPetView: View {
         return VStack(spacing: 2) {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.primary.opacity(0.15))
+                    Capsule().fill(Color.white.opacity(0.22))
                     Capsule()
                         .fill(maxed ? Color.yellow.opacity(0.85) : Color.green.opacity(0.85))
                         .frame(width: geo.size.width * frac)
@@ -138,7 +134,7 @@ struct RasterPetView: View {
             .frame(height: 5)
             Text(maxed ? "满级 ✓" : "\(Int(state.energy))/\(Int(total))")
                 .font(.system(size: 9, weight: .medium, design: .rounded))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.9))
         }
         .frame(width: 96)
         .accessibilityIdentifier("pet.energy")
@@ -218,16 +214,6 @@ struct RasterPetView: View {
         case .waiting: return "waiting"
         case .celebrate, .evolve: return mood == .evolve ? "evolve" : "complete"
         case .hungry: return "hungry"
-        }
-    }
-    private var moodText: String {
-        switch state.mood {
-        case .idle: return "发呆"
-        case .working: return "干活中"
-        case .waiting: return "等你"
-        case .celebrate: return "完成啦"
-        case .evolve: return "进化!"
-        case .hungry: return "饿了"
         }
     }
     private var moodRaw: String {
