@@ -114,10 +114,35 @@ struct RasterPetView: View {
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("pet.stats")
                 .accessibilityValue("\(state.working):\(state.waiting):\(state.completed)")
+                energyBar
             }
         }
         .padding(10)
         .contextMenu { Button("隐藏宠物", action: onHide) }
+    }
+
+    /// 当前宠物能量条：成长中显示 energy/energyToNext 进度；满级/收藏显示满格「满级」。
+    private var energyBar: some View {
+        let maxed = state.isGraduated || state.isSkin
+        let total = max(1, state.energyToNext)
+        let frac = maxed ? 1.0 : max(0, min(1, state.energy / total))
+        return VStack(spacing: 2) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.primary.opacity(0.15))
+                    Capsule()
+                        .fill(maxed ? Color.yellow.opacity(0.85) : Color.green.opacity(0.85))
+                        .frame(width: geo.size.width * frac)
+                }
+            }
+            .frame(height: 5)
+            Text(maxed ? "满级 ✓" : "\(Int(state.energy))/\(Int(total))")
+                .font(.system(size: 9, weight: .medium, design: .rounded))
+                .foregroundStyle(.secondary)
+        }
+        .frame(width: 96)
+        .accessibilityIdentifier("pet.energy")
+        .accessibilityValue(maxed ? "maxed" : "\(Int(state.energy)):\(Int(total))")
     }
 
     private func render(_ ctx: GraphicsContext, size: CGSize, at date: Date) {

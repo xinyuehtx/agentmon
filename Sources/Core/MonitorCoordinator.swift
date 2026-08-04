@@ -124,8 +124,13 @@ public final class MonitorCoordinator {
         self.species = species
         self.graduated = graduated
         self.diedSpecies = diedSpecies.filter { !graduated.contains($0) }
+        // 回填：活跃宠物已满级（可能在旧毕业规则下达成、当时未记录）却不在收藏内 →
+        // 补记为已毕业，保证「满级即可切换/固定形态」且展示态可跨重启持久化。
+        if let s = species, engine.isGraduated, !self.graduated.contains(s) {
+            self.graduated.append(s)
+        }
         // 展示皮肤仅在物种确实已毕业时才生效，否则回落活跃宠物。
-        if let skin = displaySkin, graduated.contains(skin) {
+        if let skin = displaySkin, self.graduated.contains(skin) {
             self.displaySkin = skin
             self.displayStage = displayStage
         } else {
@@ -163,7 +168,8 @@ public final class MonitorCoordinator {
     /// 返回是否生效（未满级或无活跃物种时忽略）。
     @discardableResult
     public func pinDisplayStage(_ stage: String?) -> Bool {
-        guard let species = species, engine.isGraduated, graduated.contains(species) else { return false }
+        // 活跃宠物满级即可固定/切换形态；不再要求已在 graduated 收藏内（旧状态可能未记录）。
+        guard let species = species, engine.isGraduated else { return false }
         if let stage = stage {
             displaySkin = species
             displayStage = stage

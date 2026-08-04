@@ -102,6 +102,30 @@ final class MonitorCoordinatorLifecycleTests: XCTestCase {
         XCTAssertNil(coord.displaySkin)
     }
 
+    func testGraduatedPetCanPinEvenWhenNotInCollection() {
+        // 回归：满级但 graduated 收藏为空（旧规则下达成、当时未记录）→ 仍可固定/切换形态。
+        let coord = makeCoord(energy: 2700, level: 4)  // level 4 >= graduationLevel 4 → 已满级
+        coord.restoreLifecycle(species: "a", graduated: [], displaySkin: nil, displayStage: nil)
+        XCTAssertTrue(coord.engine.isGraduated)
+        // restoreLifecycle 回填：满级活跃物种补记入收藏。
+        XCTAssertTrue(coord.graduated.contains("a"))
+        // 固定形态生效且能量冻结。
+        XCTAssertTrue(coord.pinDisplayStage("youth"))
+        let snap = coord.pump(now: at(9999))
+        XCTAssertTrue(snap.isSkinMode)
+        XCTAssertEqual(snap.displayStage, "youth")
+        XCTAssertEqual(coord.engine.energy, 2700, accuracy: 1e-6)
+    }
+
+    func testRestorePinnedStagePersistsAfterBackfill() {
+        // 回归：满级 + 已固定形态，重启恢复时凭回填后的收藏名单还原展示态。
+        let coord = makeCoord(energy: 0, level: 4)
+        coord.restoreLifecycle(species: "a", graduated: [], displaySkin: "a", displayStage: "baby")
+        XCTAssertEqual(coord.displaySkin, "a")
+        XCTAssertEqual(coord.displayStage, "baby")
+        XCTAssertTrue(coord.snapshot().isSkinMode)
+    }
+
     func testStarvationTriggersRebirth() {
         let cfg = EnergyConfig(
             workingPerMin: 2, waitingPerMin: -1, completedBonus: 30, idleDecayPerMin: -0.5,

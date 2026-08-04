@@ -93,7 +93,9 @@ private struct DashboardView: View {
                         Text("固定形态：\(PetProgression.stageName(model.currentStage))")
                     }
                 } else if model.isGraduated {
-                    Text("Lv\(model.displayLevel)/\(cap)\(form)   已满级 ✓")
+                    Text("Lv\(model.displayLevel)/\(cap)\(form)")
+                    ProgressView(value: 1, total: 1).frame(maxWidth: 240).tint(.yellow)
+                    Text("满级 ✓").font(.callout).foregroundStyle(.secondary)
                 } else {
                     Text("Lv\(model.displayLevel)/\(cap)\(form)")
                     ProgressView(value: min(model.energy, model.energyToNext), total: max(1, model.energyToNext))
@@ -312,52 +314,8 @@ private struct PetSettingsView: View {
             }
 
             if !model.stages.isEmpty {
-                // 多形态包（verdant）：成长形态进度；满级后可固定任意成熟形态展示
-                CardSection(title: "成长形态") {
-                    Text(
-                        model.isGraduated
-                            ? "已满级：点选任一形态固定展示，能量永久冻结、不再消耗或增长。"
-                            : "随等级进化：升级即变为下一形态。满级后可固定成熟形态。"
-                    )
-                    .font(.caption).foregroundStyle(.secondary)
-                    HStack(spacing: 8) {
-                        ForEach(Array(model.stages.enumerated()), id: \.offset) { idx, st in
-                            let isCur = st == model.currentStage
-                            let reached = idx <= (model.stages.firstIndex(of: model.currentStage) ?? 0)
-                            HStack(spacing: 4) {
-                                Text(PetProgression.stageName(st))
-                                    .font(.caption).bold(isCur)
-                                    .padding(.horizontal, 8).padding(.vertical, 4)
-                                    .background(
-                                        Capsule().fill(
-                                            isCur
-                                                ? Color.green.opacity(0.3)
-                                                : Color.primary.opacity(reached ? 0.1 : 0.04))
-                                    )
-                                    .foregroundStyle(reached ? .primary : .secondary)
-                                    .contentShape(Capsule())
-                                    .onTapGesture {
-                                        if model.isGraduated { model.onSelectStage?(st) }
-                                    }
-                                    .help(model.isGraduated ? "固定为「\(PetProgression.stageName(st))」形态" : "")
-                                if idx < model.stages.count - 1 {
-                                    Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
-                    if model.isGraduated {
-                        HStack {
-                            if model.isSkinMode {
-                                Text("已固定：\(PetProgression.stageName(model.currentStage))")
-                                    .font(.caption).foregroundStyle(.green)
-                            }
-                            Spacer()
-                            Button("恢复默认（成熟）") { model.onSelectStage?(nil) }
-                                .disabled(!model.isSkinMode)
-                        }
-                    }
-                }
+                // 多形态包（verdant）：成长形态图鉴（收藏 gallery）；满级后可固定任意成熟形态
+                stageGallery
             } else if !model.elements.isEmpty {
                 // 单形态元素包（aurora）：元素图鉴收藏
                 CardSection(title: "元素图鉴（\(unlocked.count)/\(model.elements.count)）") {
@@ -387,6 +345,52 @@ private struct PetSettingsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// 形态图鉴列表：优先用带缩略图的 model.forms，未构建时按 stages 兜底（无图占位）。
+    private var galleryForms: [PetFormInfo] {
+        if !model.forms.isEmpty { return model.forms }
+        return model.stages.map { PetFormInfo(id: $0, name: PetProgression.stageName($0), thumbnail: nil) }
+    }
+
+    /// 已解锁到的最高形态下标（等级=形态 1:1，封顶到最后一档）。
+    private var reachedIndex: Int {
+        max(0, min(model.stages.count - 1, model.displayLevel))
+    }
+
+    private var stageGallery: some View {
+        let forms = galleryForms
+        return CardSection(title: "成长形态图鉴（\(reachedIndex + 1)/\(model.stages.count)）") {
+            Text(
+                model.isGraduated
+                    ? "已满级：点选任一形态固定展示，能量永久冻结、不再消耗或增长。"
+                    : "随等级进化：升级即解锁下一形态；满级后可自由固定成熟形态。"
+            )
+            .font(.caption).foregroundStyle(.secondary)
+            LazyVGrid(
+                columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10
+            ) {
+                ForEach(Array(forms.enumerated()), id: \.element.id) { idx, form in
+                    FormCell(
+                        form: form,
+                        reached: idx <= reachedIndex,
+                        isCurrent: form.id == model.currentStage,
+                        tappable: model.isGraduated,
+                        onTap: { model.onSelectStage?(form.id) })
+                }
+            }
+            if model.isGraduated {
+                HStack {
+                    if model.isSkinMode {
+                        Text("已固定：\(PetProgression.stageName(model.currentStage))")
+                            .font(.caption).foregroundStyle(.green)
+                    }
+                    Spacer()
+                    Button("恢复默认（成熟）") { model.onSelectStage?(nil) }
+                        .disabled(!model.isSkinMode)
+                }
+            }
+        }
+    }
+
     private var statusLine: String {
         let max = PetProgression.maxLevel
         if !model.stages.isEmpty {
@@ -405,6 +409,52 @@ private struct PetSettingsView: View {
         if model.growth >= 0.98 { return "成年" }
         if model.growth >= 0.75 { return "成长中" }
         return "幼年"
+    }
+}
+
+/// 成长形态图鉴单元格：缩略图 + 名称，已解锁高亮/展示中描边；满级时可点选固定。
+private struct FormCell: View {
+    let form: PetFormInfo
+    let reached: Bool
+    let isCurrent: Bool
+    let tappable: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        VStack(spacing: 4) {
+            thumb
+                .frame(width: 64, height: 64)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(reached ? Color(white: 0.92) : Color.primary.opacity(0.06))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(
+                            isCurrent ? Color.green : Color.gray.opacity(reached ? 0.35 : 0.2),
+                            lineWidth: isCurrent ? 2.5 : 1))
+            Text(form.name).font(.caption2).foregroundStyle(reached ? .primary : .secondary)
+            if isCurrent {
+                Text("展示中").font(.system(size: 9)).foregroundStyle(.green)
+            } else if !reached {
+                Text("未解锁").font(.system(size: 9)).foregroundStyle(.secondary)
+            } else if tappable {
+                Text("可固定").font(.system(size: 9)).foregroundStyle(.secondary)
+            }
+        }
+        .opacity(reached ? 1 : 0.5)
+        .contentShape(Rectangle())
+        .onTapGesture { if tappable && reached { onTap() } }
+        .help(tappable && reached ? "固定为「\(form.name)」形态" : form.name)
+    }
+
+    @ViewBuilder private var thumb: some View {
+        if let img = form.thumbnail {
+            Image(nsImage: img).resizable().scaledToFit().padding(4)
+                .saturation(reached ? 1 : 0).opacity(reached ? 1 : 0.6)
+        } else {
+            Image(systemName: "leaf.fill").font(.title2).foregroundStyle(.secondary)
+        }
     }
 }
 

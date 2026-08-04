@@ -16,6 +16,8 @@ final class PetState: ObservableObject {
     @Published var stage: String = "egg"
     /// 是否处于收藏皮肤展示模式（成长暂停）；面板标签据此显示「收藏 · 形态」而非 Lv。
     @Published var isSkin: Bool = false
+    /// 是否已满级毕业（能量冻结）；能量条据此显示「满级」满格而非进度。
+    @Published var isGraduated: Bool = false
     /// 成长度 0..1（幼年→成年），由等级/毕业门槛推导，驱动桌宠体型与光环。
     @Published var growth: Double = 1.0
     /// 空闲时叠加的一次性「随机表现动作」键（解锁越多越活泼）；nil = 只播 mood 动作。

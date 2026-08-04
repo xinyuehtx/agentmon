@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import SwiftUI
 import agentmonCore
@@ -21,6 +22,8 @@ final class AppModel: ObservableObject {
     /// 成长形态（v3 多形态包）：形态 id 列表 + 当前形态；空=单形态包（aurora）。
     @Published var stages: [String] = []
     @Published var currentStage: String = ""
+    /// 成长形态图鉴（含缩略图，供收藏 gallery）；面板打开时构建一次。
+    @Published var forms: [PetFormInfo] = []
     @Published var clients: [ClientSummary] = []
     @Published var sessions: [SessionRow] = []
     @Published var activity: [ActivityItem] = []
@@ -54,6 +57,13 @@ final class AppModel: ObservableObject {
     var onSelectStage: ((String?) -> Void)?  // 满级固定成熟形态；nil=跟随成长
     var onRunDiagnostics: (() -> Void)?
     var onOpenLog: (() -> Void)?
+}
+
+/// 一个成长形态在图鉴 gallery 里的展示信息（缩略图取自该形态 idle 动画首帧）。
+struct PetFormInfo: Identifiable {
+    let id: String  // 形态 id（egg/baby/youth/mature…）
+    let name: String  // 中文名
+    let thumbnail: NSImage?
 }
 
 /// 一个元素在图鉴里的展示信息。

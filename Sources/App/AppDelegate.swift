@@ -204,6 +204,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         petState.species = snap.displaySpecies
         petState.stage = currentStageID(snap) ?? snap.displayStage
         petState.isSkin = snap.isSkinMode
+        petState.isGraduated = snap.isGraduated
         petState.growth = growthValue(snap)
         if snap.totalCompleted > lastCompleted {
             petState.mood = .celebrate  // 刚完成任务 → 撒花演出
@@ -246,6 +247,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if snap.isSkinMode, ids.contains(snap.displayStage) { return snap.displayStage }
         let lv = PetProgression.displayLevel(engineLevel: snap.level)
         return ids[PetProgression.stageIndex(displayLevel: lv, stageCount: ids.count)]
+    }
+
+    /// 某成长形态的缩略图（取 idle 动画首帧）；供控制台形态图鉴 gallery。
+    private func stageThumbnail(_ stage: String) -> NSImage? {
+        guard let store = rasterStore else { return nil }
+        let acts = store.manifest.actions(forStage: stage)
+        guard let a = acts["idle"] ?? acts.values.first else { return nil }
+        guard let cg = store.frames(a).first else { return nil }
+        return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
     }
 
     /// 某动作一轮播放时长（秒），取自当前形态的动作条。
@@ -364,6 +374,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             PetElementInfo(
                 id: $0.id, name: $0.name, tint: $0.tint,
                 portraitPath: rasterStore?.elementPortraitURL($0.id)?.path ?? "")
+        }
+        appModel.forms = (rasterStore?.manifest.stageIDs ?? []).map {
+            PetFormInfo(id: $0, name: PetProgression.stageName($0), thumbnail: stageThumbnail($0))
         }
         refreshIntegrationRows()
         if let snap = lastSnapshot { feedDashboard(snap) }
